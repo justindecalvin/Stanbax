@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* ========================================================================= */
+/* 3 UNIQUE WEBSITE THEMES FOR STANBAX SCHOOLS CMS                           */
+/* ========================================================================= */
+
+/* 1. Theme: Royal Navy & Imperial Gold (Default Classic Heritage) */
+:root,
+:root[data-theme="royal-navy"] {
+  --theme-id: 'royal-navy';
+  --theme-bg: #FDFBF7;
+  --theme-surface: #FFFFFF;
+  --theme-primary: #1E3A8A;
+  --theme-primary-dark: #0F172A;
+  --theme-primary-hover: #172554;
+  --theme-accent: #DC2626;
+  --theme-accent-hover: #B91C1C;
+  --theme-gold: #F59E0B;
+  --theme-gold-subtle: #FEF3C7;
+  --theme-badge-bg: #EFF6FF;
+  --theme-badge-text: #1E40AF;
+  --theme-badge-border: #BFDBFE;
+  --theme-header-bg: #0F172A;
+  --theme-hero-gradient: linear-gradient(135deg, #0B1B3D 0%, #172554 45%, #1E3A8A 80%, #0F172A 100%);
+  --theme-footer-bg: #0A0F1D;
+  --theme-card-border: #E2E8F0;
+}
+
+/* 2. Theme: Emerald Distinction & Warm Sand (Ivy Vitality & Excellence) */
+:root[data-theme="emerald-gold"] {
+  --theme-id: 'emerald-gold';
+  --theme-bg: #F5F9F6;
+  --theme-surface: #FFFFFF;
+  --theme-primary: #065F46;
+  --theme-primary-dark: #022C22;
+  --theme-primary-hover: #047857;
+  --theme-accent: #059669;
+  --theme-accent-hover: #047857;
+  --theme-gold: #D97706;
+  --theme-gold-subtle: #FEF3C7;
+  --theme-badge-bg: #ECFDF5;
+  --theme-badge-text: #065F46;
+  --theme-badge-border: #A7F3D0;
+  --theme-header-bg: #022C22;
+  --theme-hero-gradient: linear-gradient(135deg, #022C22 0%, #064E3B 45%, #065F46 80%, #022C22 100%);
+  --theme-footer-bg: #011C16;
+  --theme-card-border: #D1FAE5;
+}
+
+/* 3. Theme: Cardinal Crimson & Midnight Obsidian (Modern Collegiate Mastery) */
+:root[data-theme="crimson-obsidian"] {
+  --theme-id: 'crimson-obsidian';
+  --theme-bg: #FAF8F8;
+  --theme-surface: #FFFFFF;
+  --theme-primary: #881337;
+  --theme-primary-dark: #18181B;
+  --theme-primary-hover: #9F1239;
+  --theme-accent: #E11D48;
+  --theme-accent-hover: #BE123C;
+  --theme-gold: #EAB308;
+  --theme-gold-subtle: #FFFBEB;
+  --theme-badge-bg: #FFF1F2;
+  --theme-badge-text: #9F1239;
+  --theme-badge-border: #FECDD3;
+  --theme-header-bg: #18181B;
+  --theme-hero-gradient: linear-gradient(135deg, #4C0519 0%, #881337 45%, #18181B 80%, #09090B 100%);
+  --theme-footer-bg: #09090B;
+  --theme-card-border: #F1F5F9;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--theme-bg, #FDFBF7);
+  transition: background-color 0.3s ease;
+}
+
+/* Theme accent helpers */
+.theme-hero-gradient {
+  background: var(--theme-hero-gradient);
+}
+
+.theme-nav-bg {
+  background-color: var(--theme-header-bg);
+}
+
+.theme-accent-btn {
+  background-color: var(--theme-accent);
+}
+.theme-accent-btn:hover {
+  background-color: var(--theme-accent-hover);
+}
+
+.theme-badge {
+  background-color: var(--theme-badge-bg);
+  color: var(--theme-badge-text);
+  border: 1px solid var(--theme-badge-border);
+}
+
