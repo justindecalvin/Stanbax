@@ -20,7 +20,6 @@ import {
 } from './RealIcons';
 import { UserRole } from '../types';
 import { StudentRegistrationModal } from './StudentRegistrationModal';
-import { isRemoteEnabled } from '../lib/supabase';
 
 interface PortalLoginPageProps {
   onBackToWebsite: () => void;
@@ -211,16 +210,6 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
               <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-extrabold uppercase tracking-wide border border-amber-400/30">
                 Universal Portal Gateway
               </span>
-              {isRemoteEnabled() ? (
-                <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 text-[10px] font-bold border border-emerald-500/40">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Supabase Live</span>
-                </span>
-              ) : (
-                <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 text-[10px] font-bold border border-neutral-700">
-                  <span>Local Mode</span>
-                </span>
-              )}
             </div>
             <p className="text-[11px] text-[#FAF7EE]/70 hidden sm:block">
               {schoolInfo.location || `${schoolInfo.city}, ${schoolInfo.state}`}

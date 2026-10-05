@@ -16,7 +16,7 @@ interface AcademicProgramsProps {
 }
 
 export const AcademicPrograms: React.FC<AcademicProgramsProps> = ({ onOpenAdmissions }) => {
-  const { images, academicPrograms, featuredCourses, schoolInfo } = useSchool();
+  const { images, academicPrograms, featuredCourses } = useSchool();
   const progs = (academicPrograms && academicPrograms.length > 0) ? academicPrograms : ACADEMIC_PROGRAMS;
   const courses = (featuredCourses && featuredCourses.length > 0) ? featuredCourses : FEATURED_COURSES;
   const [selectedProgram, setSelectedProgram] = useState<AcademicProgram>(progs[1] || progs[0]);
@@ -28,10 +28,6 @@ export const AcademicPrograms: React.FC<AcademicProgramsProps> = ({ onOpenAdmiss
     }
   }, [progs, selectedProgram]);
 
-  const headerBadge = schoolInfo.programsHeader?.badge || 'Curriculum & Academics';
-  const headerTitle = schoolInfo.programsHeader?.title || 'Academic Pathways at Stanbax Schools';
-  const headerSubtitle = schoolInfo.programsHeader?.subtitle || 'Structured for all age tiers from early childhood through college graduation, integrating national benchmarks with international enrichment.';
-
   return (
     <section id="curriculum" className="py-20 bg-[#FDFBF7] border-b border-[#EAE2CE] font-['Nunito',sans-serif]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -39,13 +35,13 @@ export const AcademicPrograms: React.FC<AcademicProgramsProps> = ({ onOpenAdmiss
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-100 text-neutral-900 border border-amber-300 text-xs font-black uppercase tracking-wider mb-3">
             <BookOpen className="w-3.5 h-3.5 text-red-600" />
-            <span>{headerBadge}</span>
+            <span>Curriculum & Academics</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-neutral-900 tracking-tight">
-            {headerTitle}
+            Academic Pathways at Stanbax Schools
           </h2>
           <p className="text-neutral-600 text-sm sm:text-base mt-3">
-            {headerSubtitle}
+            Structured for all age tiers from early childhood through college graduation, integrating national benchmarks with international enrichment.
           </p>
         </div>
 
@@ -186,19 +182,19 @@ export const AcademicPrograms: React.FC<AcademicProgramsProps> = ({ onOpenAdmiss
         <div>
           <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-xs font-extrabold uppercase tracking-widest text-red-600 block mb-1">
-              {schoolInfo.enrichmentHeader?.badge || 'Co-Curricular & Specializations'}
+              Co-Curricular & Specializations
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-neutral-900">
-              {schoolInfo.enrichmentHeader?.title || 'Enrichment & Specialty Clubs'}
+              Enrichment & Specialty Clubs
             </h3>
             <p className="text-neutral-600 text-xs sm:text-sm mt-1">
-              {schoolInfo.enrichmentHeader?.subtitle || 'Hands-on practical development outside the traditional classroom syllabus.'}
+              Hands-on practical development outside the traditional classroom syllabus.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {courses.map((course) => {
-              const courseImg = course.imageUrl || (course.imageKey && images[course.imageKey]) || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80';
+              const courseImg = (course.imageKey && images[course.imageKey]) || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80';
               return (
                 <div
                   key={course.id}

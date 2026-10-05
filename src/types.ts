@@ -356,24 +356,6 @@ export interface FacultyMember {
   displayOrder?: number;
 }
 
-export interface SectionHeaderInfo {
-  badge?: string;
-  title?: string;
-  subtitle?: string;
-}
-
-export interface StudentLifeHeaderInfo extends SectionHeaderInfo {
-  sportsPhotoUrl?: string;
-  culturalPhotoUrl?: string;
-  artPhotoUrl?: string;
-  sportsBadge?: string;
-  sportsTitle?: string;
-  culturalBadge?: string;
-  culturalTitle?: string;
-  artBadge?: string;
-  artTitle?: string;
-}
-
 export interface SchoolInfo {
   name: string;
   motto: string;
@@ -397,43 +379,6 @@ export interface SchoolInfo {
   mission?: string;
   location?: string;
   admissionsPhone?: string;
-  admissionsEmail?: string;
-  programsHeader?: SectionHeaderInfo;
-  enrichmentHeader?: SectionHeaderInfo;
-  studentLifeHeader?: StudentLifeHeaderInfo;
-  facultyHeader?: SectionHeaderInfo;
-  noticesHeader?: SectionHeaderInfo;
-  calendarHeader?: SectionHeaderInfo;
-  contactOfficeHours?: string;
-  contactHeading?: string;
-  contactSubtitle?: string;
-  footerBio?: string;
-  footerCopyright?: string;
-  footerAccreditation?: string;
-  websiteTheme?: WebsiteTheme;
-  socialLinks?: {
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-    linkedin?: string;
-    youtube?: string;
-  };
-}
-
-export type WebsiteTheme = 'royal-navy' | 'emerald-gold' | 'crimson-obsidian';
-
-export interface ThemeConfig {
-  id: WebsiteTheme;
-  name: string;
-  tagline: string;
-  description: string;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  goldColor: string;
-  bgBase: string;
-  badge: string;
-  previewBg: string;
 }
 
 export interface SchoolClass {
@@ -671,7 +616,6 @@ export interface HeroSlide {
   ctaAction: string;
   badge: string;
   imageUrl: string;
-  secondaryCtaText?: string;
 }
 
 export interface KeyPillarItem {
@@ -700,7 +644,6 @@ export interface AboutSectionContent {
   mission: string;
   quote?: string;
   founderPhotoUrl?: string;
-  heritageText?: string;
 }
 
 export interface FeaturedCourse {
@@ -710,7 +653,6 @@ export interface FeaturedCourse {
   description: string;
   highlights: string[];
   imageKey?: string;
-  imageUrl?: string;
   grade?: string;
   highlight?: string;
   tutor?: string;
@@ -1154,4 +1096,45 @@ export interface StudentArticleSubmission {
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
 }
+
+// 8. Public Landing Page School Representative & Visitor Chat
+export type SchoolRepRole = 'principal' | 'bursar' | 'representative' | 'admissions';
+
+export interface SchoolRepConfig {
+  activeRole: SchoolRepRole;
+  repName: string;
+  repTitle: string;
+  repAvatar?: string;
+  isAvailable: boolean; // true = online, false = offline (Calvin AI auto-answers)
+  welcomeMessage: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  statusText?: string;
+  officeHours?: string;
+}
+
+export interface VisitorChatMessage {
+  id: string;
+  sender: 'visitor' | 'representative' | 'calvin_ai';
+  senderName: string;
+  senderTitle?: string;
+  senderAvatar?: string;
+  content: string;
+  timestamp: string;
+  isAiResponse?: boolean;
+}
+
+export interface VisitorConversation {
+  visitorId: string;
+  visitorName: string;
+  visitorPhone?: string;
+  visitorEmail?: string;
+  visitorCategory?: 'Prospective Parent' | 'Guest Scholar' | 'Alumni' | 'General Visitor';
+  createdAt: string;
+  lastMessageAt: string;
+  status: 'open' | 'resolved' | 'waiting_rep';
+  unreadByAdmin: boolean;
+  messages: VisitorChatMessage[];
+}
+
 

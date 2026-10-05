@@ -14,16 +14,13 @@ interface NoticeBoardProps {
 }
 
 export const NoticeBoard: React.FC<NoticeBoardProps> = ({ onOpenAdmissions }) => {
-  const { notices, schoolInfo } = useSchool();
+  const { notices } = useSchool();
   const [filterAudience, setFilterAudience] = useState<string>('All');
 
   const filteredNotices = notices.filter(n => {
     if (filterAudience === 'All') return true;
     return n.audience === filterAudience || n.audience === 'All';
   });
-
-  const noticesBadge = schoolInfo.noticesHeader?.badge || 'Official School Bulletins';
-  const noticesTitle = schoolInfo.noticesHeader?.title || 'School Announcements & Notices';
 
   return (
     <section className="py-20 bg-white border-b border-stone-200">
@@ -32,10 +29,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ onOpenAdmissions }) =>
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
               <Bell className="w-3.5 h-3.5 text-amber-600" />
-              <span>{noticesBadge}</span>
+              <span>Official School Bulletins</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-              {noticesTitle}
+              School Announcements & Notices
             </h2>
           </div>
 

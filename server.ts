@@ -27,8 +27,8 @@ async function generateWithGemini(ai: GoogleGenAI, params: {
   contents: any;
   config?: any;
 }) {
-  // Prioritize active fast models for rapid, sub-2-second student responses
-  const candidateModels = ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash"];
+  // Use fast, reliable flash models first to prevent Cloud Run proxy timeouts
+  const candidateModels = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"];
   let lastErr = null;
   for (const model of candidateModels) {
     try {
@@ -37,8 +37,8 @@ async function generateWithGemini(ai: GoogleGenAI, params: {
         contents: params.contents,
         config: {
           ...params.config,
-          // Abort signal to ensure snappy responses and avoid gateway timeouts
-          abortSignal: AbortSignal.timeout(8000),
+          // Abort signal to ensure no individual model hangs and triggers a 504 Gateway Timeout
+          abortSignal: AbortSignal.timeout(12000),
         }
       });
       return { response, model };
@@ -601,107 +601,23 @@ Nevertheless, significant impediments persist. Erratic power supply and prohibit
   };
 }
 
-// Comprehensive Academic & Institutional Fallback Engine for Calvin AI
-function generateCalvinAcademicFallback(question: string, studentName: string = "Scholar", classLevel: string = "SSS 2", isPremium: boolean = true, schemeOfWork?: any): string {
+// Academic Fallback Engine for Calvin AI
+function generateCalvinAcademicFallback(question: string, studentName: string, classLevel: string, isPremium: boolean, schemeOfWork?: any): string {
   const qLower = question.toLowerCase();
-  const firstName = (studentName && studentName !== "Scholar") ? studentName.split(' ')[0] : "Scholar";
   const isEarly = classLevel.toLowerCase().includes('nursery') || classLevel.toLowerCase().includes('kg') || classLevel.toLowerCase().includes('reception');
-  const isPrimary = classLevel.toLowerCase().includes('primary') || classLevel.toLowerCase().includes('basic') || classLevel.toLowerCase().includes('grade');
-  const isJunior = classLevel.toLowerCase().includes('jss') || classLevel.toLowerCase().includes('junior');
 
-  // 1. SCHOOL PROFILE, ADMISSIONS, TUITION & CAMPUS INQUIRIES
-  if (qLower.includes('admission') || qLower.includes('enroll') || qLower.includes('apply') || qLower.includes('entrance exam') || qLower.includes('how to join')) {
-    return `Hello ${firstName}! Welcome to Stanbax Schools Ibadan. Here is our official Admissions Guide:
+  if (isEarly) {
+    return `Hello little star, ${studentName}!
 
-Stanbax Schools Admissions Procedure:
-1. Application Form: Obtain the prospective student enrollment form online through our portal admissions button, or pick up a physical form at our campus administrative registry.
-2. Required Documentation:
-   • 2 recent passport-sized photographs of the applicant
-   • Photocopy of official birth certificate or statutory age declaration
-   • Last two academic session report cards from previous school (for Primary and Secondary applicants)
-   • Medical fitness clearance certificate
-3. Assessment & Placement Interview:
-   • Early Years & Nursery: Observational sensory and readiness interaction.
-   • Primary & Secondary: Diagnostic placement test in Mathematics, English Language, and General Aptitude.
-4. Offer & Acceptance: Successful applicants receive an official Letter of Provisional Admission within 3 business days.
+I love your wonderful question! In our ${classLevel} class at Stanbax Schools, we learn that:
 
-Admissions Desk Contacts:
-• Phone: +234 803 123 4567 / +234 802 887 6543
-• Email: admissions@stanbaxschools.edu.ng
-• Campus: Beside Ikolaba High School, No. 9 Ojo Ikolaba Road, Ikolaba, Ibadan, Oyo State.
+• Everything around us has a name and a special purpose!
+• God made our world full of colorful shapes, sounds, and friendly animals.
 
-Would you like help calculating estimated tuition or booking a guided campus tour?`;
+Keep asking questions and smiling today! You did great!`;
   }
 
-  if (qLower.includes('fee') || qLower.includes('tuition') || qLower.includes('cost') || qLower.includes('school fees') || qLower.includes('price')) {
-    return `Hello ${firstName}! Here is the approved Tuition & Fee Schedule for Stanbax Schools Ibadan (2026/2027 Academic Session):
-
-Term Tuition Schedule by Grade Tier:
-• Crèche & Toddler Playgroup: ₦120,000 per term
-• Nursery 1 & 2: ₦135,000 – ₦140,000 per term
-• Lower Primary (Basic 1 – 3): ₦155,000 – ₦165,000 per term
-• Upper Primary (Basic 4 – 6): ₦170,000 – ₦190,000 per term
-• Junior Secondary School (JSS 1 – 3): ₦210,000 – ₦225,000 per term
-• Senior Secondary School (SSS 1 – 3): ₦240,000 – ₦265,000 per term
-
-Tuition Inclusions & Benefits:
-• Core academic instruction in British-Nigerian curricula
-• Science laboratories and hands-on ICT/Robotics studio access
-• Sports coaching and co-curricular club societies
-• Term continuous assessments, terminal examinations, and digitized report card access
-
-Payment & Bursary Plans:
-Stanbax Bursary offers flexible installment plans (60% at resumption, 40% before mid-term break). For bespoke payment advice, contact our Bursary Office at bursary@stanbaxschools.edu.ng or call +234 803 123 4567.`;
-  }
-
-  if (qLower.includes('address') || qLower.includes('location') || qLower.includes('where is') || qLower.includes('located') || qLower.includes('campus')) {
-    return `Hello ${firstName}! Stanbax Schools is conveniently situated in an accessible and secure academic neighborhood in Ibadan:
-
-Campus Location:
-• Physical Address: Beside Ikolaba High School, No. 9 Ojo Ikolaba Road, Ikolaba, Ibadan, Oyo State, Nigeria.
-• Landmark: Near Ikolaba Government Reservation Area (GRA), easily accessible from Bodija, Agodi Secretariat, and Total Garden.
-
-Campus Operating Hours:
-• Monday – Friday: 07:15 AM – 04:30 PM (Classes run 08:00 AM – 03:00 PM; Co-curricular clubs 03:00 PM – 04:30 PM).
-
-School Bus Transit Service:
-Our air-conditioned school bus fleet covers routes across Bodija, Oluyole, Jericho, Agodi, Ring Road, Akobo, and Samonda with certified chaperones.`;
-  }
-
-  if (qLower.includes('resumption') || qLower.includes('calendar') || qLower.includes('term date') || qLower.includes('holiday') || qLower.includes('when do we resume')) {
-    return `Hello ${firstName}! Here is the Academic Session Calendar for Stanbax Schools:
-
-2026/2027 Academic Session Calendar:
-• 1st Term (Michaelmas Term):
-  - Resumption: Monday, September 15, 2026
-  - Mid-Term Assessment & Break: October 26 – October 30, 2026
-  - Terminal Examinations: November 30 – December 11, 2026
-  - Vacation & Carol Celebration: Friday, December 18, 2026
-
-• 2nd Term (Lent Term):
-  - Resumption: Monday, January 11, 2027
-  - Inter-House Athletics Championship: Mid-February 2027
-  - Terminal Vacation: Friday, April 2, 2027
-
-• 3rd Term (Trinity Term):
-  - Resumption: Monday, April 26, 2027
-  - WAEC WASSCE & BECE Examination Period: May – June 2027
-  - Annual Speech & Prize-Giving Graduation: July 2027`;
-  }
-
-  if (qLower.includes('founder') || qLower.includes('proprietress') || qLower.includes('history') || qLower.includes('who started') || qLower.includes('mrs. adebisi')) {
-    return `Hello ${firstName}! Here is the founding story of Stanbax Schools:
-
-Founder & Leadership Spotlight:
-• Founder & Executive Director: Mrs. Adebisi Folashade Bello
-• Established: 2007 in Ibadan, Oyo State
-• Vision: "To raise a generation of morally upright, intellectually distinguished, and globally competitive scholars equipped for 21st-century leadership."
-• School Motto: "Excellence, Character & Global Leadership"
-
-Over nearly two decades, Stanbax Schools has grown from a visionary foundation into a premier British-Nigerian dual-curriculum institution renowned for 100% distinction pass rates in WAEC WASSCE, BECE, and Cambridge IGCSE examinations.`;
-  }
-
-  // 2. SCHEME OF WORK GROUNDING (If active scheme matches query)
+  // If scheme of work is supplied, check for matched week or topic to guarantee accurate curriculum grounding
   if (schemeOfWork && Array.isArray(schemeOfWork.weeklyTopics)) {
     const weekMatch = qLower.match(/week\s*([0-9]{1,2})/);
     const targetWeekNum = weekMatch ? parseInt(weekMatch[1], 10) : null;
@@ -711,369 +627,178 @@ Over nearly two decades, Stanbax Schools has grown from a visionary foundation i
 
     if (matchedWeek) {
       const topicName = matchedWeek.topic;
-      const subtopics = matchedWeek.subtopics?.length ? matchedWeek.subtopics.join(', ') : 'Theoretical fundamentals, worked examples, and exam practice';
+      const subtopics = matchedWeek.subtopics?.length ? matchedWeek.subtopics.join(', ') : 'Theoretical fundamentals and worked step derivations';
       const formulas = matchedWeek.keyFormulasOrTerms?.length ? matchedWeek.keyFormulasOrTerms.join(', ') : '';
       const objectives = matchedWeek.learningObjectives?.length ? matchedWeek.learningObjectives.map((o: string) => `• ${o}`).join('\n') : '';
 
-      return `Hello ${firstName}! Here is your Stanbax curriculum breakdown for Week ${matchedWeek.week}:
+      return `Hello ${studentName}. It is a pleasure to guide you today as your AI Academic Tutor at Stanbax Schools Ibadan.
 
-Syllabus Unit: ${topicName} (${schemeOfWork.subjectName || 'Curriculum'} • ${classLevel})
+In Week ${matchedWeek.week} of your approved ${schemeOfWork.classLevel || classLevel} ${schemeOfWork.subjectName || ''} Scheme of Work (${schemeOfWork.term || 'Official Syllabus'}), the curriculum unit is:
 
-1. Curriculum Subtopics:
+${topicName}
+
+Curriculum Subtopics Covered:
 ${subtopics}
 
-${objectives ? `2. Learning Objectives:\n${objectives}\n\n` : ''}${formulas ? `3. Key Formulas & Standard Terms:\n• ${formulas}\n\n` : ''}4. Step-by-Step Problem Solving Method:
-• Identify given values and state the relevant governing formula.
-• Show every intermediate substitution line to earn full method marks.
-• Verify final answers with correct units (e.g. m/s², N, J, cm³, ₦).
+${objectives ? `Specific Learning Objectives:\n${objectives}\n\n` : ''}${formulas ? `Key Formulas & Exam Terms:\n• ${formulas}\n\n` : ''}Comprehensive Academic Breakdown:
+1. Concept Definition & Principle:
+${topicName} forms an essential part of the Nigerian-British secondary school syllabus and is frequently tested in WAEC WASSCE, NECO SSCE, and Cambridge IGCSE examinations. Master the core definitions, standard SI units, and step-by-step methodologies.
 
-WAEC & Cambridge Exam Secret:
-Examiners always mark the method and substitution steps independently of the final answer. Never omit intermediate lines!`;
+2. Step-by-Step Worked Approach:
+• Read the problem statement thoroughly and identify all given parameters.
+• State the standard formula or rule explicitly before substituting numerical values.
+• Work through intermediate steps systematically to secure full method marks.
+• Verify that your final answer includes the correct units or degree of accuracy.
+
+3. WAEC & Cambridge Exam Pitfalls to Avoid:
+• Pay close attention to sign conventions and unit conversions.
+• In theory papers, never omit intermediate working; Stanbax examiners and WAEC markers award step marks independently of the final numerical answer.
+
+Feel free to ask a specific follow-up question or request a worked drill on this Week ${matchedWeek.week} topic!`;
     }
   }
 
-  // 3. MATHEMATICS TOPICS
-  if (qLower.includes('quadratic') || qLower.includes('ax²') || qLower.includes('b² - 4ac') || qLower.includes('discriminant')) {
-    return `Hello ${firstName}! Here is your complete guide to Quadratic Equations for ${classLevel}:
+  if (qLower.includes('photo') || qLower.includes('plant') || qLower.includes('leaf')) {
+    if (isPremium) {
+      return `Photosynthesis: Masterclass Academic Breakdown
+Tailored for ${studentName} (${classLevel}) • Calvin Premium Masterclass
 
-Quadratic Equations: Complete Solution Method
+1. Concept Summary & Definition
+Photosynthesis is the fundamental biochemical process whereby green plants, algae, and certain cyanobacteria synthesize organic food (glucose) from inorganic carbon dioxide (CO₂) and water (H₂O), utilizing solar radiant energy trapped by chlorophyll, releasing oxygen gas as a byproduct.
 
-1. Standard Form:
+Chemical Word & Symbol Equation:
+6CO₂ + 6H₂O  ──(Sunlight / Chlorophyll)──>  C₆H₁₂O₆ + 6O₂
+Carbon Dioxide + Water  ──>  Glucose + Oxygen
+
+2. The Two Crucial Phases (WAEC / Cambridge Focus):
+• Light-Dependent Phase (Thylakoid Grana): Solar photons strike Photosystems II and I. Water undergoes photolysis (2H₂O → 4H⁺ + 4e⁻ + O₂), generating ATP and reduced NADPH.
+• Light-Independent Phase / Calvin-Benson Cycle (Stroma): Carbon fixation mediated by the enzyme RuBisCO. CO₂ combines with Ribulose 1,5-bisphosphate (RuBP) to yield 3-phosphoglycerate (PGA), subsequently reduced to glyceraldehyde-3-phosphate (G3P) and glucose.
+
+3. Mnemonic Trick to Remember Inputs & Outputs:
+C-W-S-O → Carbon dioxide + Water + Sunlight = Sugar + Oxygen!
+
+4. Stanbax Senior Examiner Tip:
+Beware of confusion between Photosynthesis and Respiration! In WAEC Section B, remember to state that light reactions occur in the thylakoids/grana while dark reactions take place in the stroma.
+
+Quick Practice Drill for You, ${studentName}:
+What happens to the rate of photosynthesis when temperature exceeds 45°C? (Hint: Think about what happens to plant protein enzymes like RuBisCO at high temperatures!)`;
+    } else {
+      return `Understanding Photosynthesis
+Hello ${studentName}! Here is your guide for ${classLevel}:
+
+Photosynthesis is the process by which green plants manufacture their own food (glucose) using:
+1. Carbon Dioxide (CO₂) from the air through microscopic stomata.
+2. Water (H₂O) absorbed by roots from the soil.
+3. Sunlight absorbed by the green pigment called chlorophyll in chloroplasts.
+
+Chemical Equation:
+Carbon Dioxide + Water  ──(Sunlight + Chlorophyll)──>  Glucose + Oxygen
+6CO₂ + 6H₂O  ──>  C₆H₁₂O₆ + 6O₂
+
+Oxygen is released into the air for humans and animals to breathe! Feel free to ask if you need further practice questions.`;
+    }
+  }
+
+  if (qLower.includes('quadratic') || qLower.includes('solve') || qLower.includes('math') || qLower.includes('equation')) {
+    if (isPremium) {
+      return `Quadratic Equations: Comprehensive Solution Method
+Personalized for ${studentName} (${classLevel}) • Calvin Premium Masterclass
+
+1. Standard General Form
+Any second-degree polynomial equation takes the form:
 ax² + bx + c = 0  (where a ≠ 0)
 
 2. The Quadratic Formula:
 x = (-b ± √(b² - 4ac)) / (2a)
 
-3. Worked Example: Solve 2x² - 5x + 2 = 0
-• Step 1: Identify coefficients: a = 2, b = -5, c = 2
-• Step 2: Compute the discriminant (Δ = b² - 4ac):
-  Δ = (-5)² - 4(2)(2) = 25 - 16 = 9
-• Step 3: Substitute into the formula:
+Worked Example: Solve 2x² - 5x + 2 = 0
+• Step 1: Identify coefficients: a = 2, b = -5, c = 2.
+• Step 2: Calculate the discriminant:
+  Δ = b² - 4ac = (-5)² - 4(2)(2) = 25 - 16 = 9.
+• Step 3: Substitute into the quadratic formula:
   x = (-(-5) ± √9) / (2 × 2) = (5 ± 3) / 4
-• First root: x₁ = (5 + 3) / 4 = 8 / 4 = 2
-• Second root: x₂ = (5 - 3) / 4 = 2 / 4 = 1/2 (or 0.5)
+• First Solution: x = (5 + 3) / 4 = 8 / 4 = 2
+• Second Solution: x = (5 - 3) / 4 = 2 / 4 = 1/2 (or 0.5)
 
-4. WAEC & Cambridge Examination Strategy:
-• Nature of roots:
-  - If b² - 4ac > 0: Two distinct real roots
-  - If b² - 4ac = 0: Two equal/repeated real roots
-  - If b² - 4ac < 0: No real roots (complex roots)
-Always state the general formula before substituting numbers to secure 2 method marks!`;
+3. WAEC & JAMB Marking Guide Note:
+Always verify your roots by factorizing: (2x - 1)(x - 2) = 0. In theory papers, showing the substitution step earns 2 method marks before the final answer!`;
+    } else {
+      return `Solving Quadratic Equations
+Hello ${studentName}! Here is the standard method for ${classLevel}:
+
+To solve any quadratic equation in the form ax² + bx + c = 0, use the quadratic formula:
+x = (-b ± √(b² - 4ac)) / (2a)
+
+Steps:
+1. Rearrange the equation so that one side equals zero.
+2. Write down the values of a, b, and c.
+3. Compute the term inside the square root: b² - 4ac.
+4. Calculate the two possible answers using + and -.
+
+Try sending me an equation like x² - 5x + 6 = 0 and I will walk through it with you!`;
+    }
   }
 
-  if (qLower.includes('calculus') || qLower.includes('differentiat') || qLower.includes('derivative') || qLower.includes('dy/dx') || qLower.includes('integrat')) {
-    return `Hello ${firstName}! Here is your ${classLevel} guide to Calculus (Differentiation & Integration):
-
-Calculus Fundamentals: Differentiation & Integration
-
-1. The Power Rule for Differentiation:
-If y = axⁿ, then dy/dx = n × axⁿ⁻¹
-• Example: If y = 3x⁴, then dy/dx = 4 × 3x³ = 12x³
-• Derivative of a constant: d/dx(c) = 0
-• Derivative of a sum: d/dx(f + g) = f' + g'
-
-2. Physical Applications of dy/dx:
-• Velocity: v = ds/dt (rate of change of displacement)
-• Acceleration: a = dv/dt = d²s/dt² (rate of change of velocity)
-• Turning Points (Maxima & Minima): Set dy/dx = 0 to find stationary points!
-
-3. The Power Rule for Indefinite Integration (Antiderivative):
-∫ xⁿ dx = (xⁿ⁺¹ / (n + 1)) + C  (for n ≠ -1, where C is the constant of integration)
-• Example: ∫ 6x² dx = 6(x³ / 3) + C = 2x³ + C
-
-WAEC Examiner Tip: Always remember to add the constant of integration "+ C" in indefinite integrals!`;
-  }
-
-  if (qLower.includes('trig') || qLower.includes('sin') || qLower.includes('cos') || qLower.includes('tan') || qLower.includes('pythagor')) {
-    return `Hello ${firstName}! Here is your complete guide to Trigonometry & Pythagoras:
-
-Trigonometry & Right-Angled Triangles
-
-1. The SOH CAH TOA Rule:
-For a right-angled triangle with angle θ:
-• sin(θ) = Opposite / Hypotenuse
-• cos(θ) = Adjacent / Hypotenuse
-• tan(θ) = Opposite / Adjacent = sin(θ) / cos(θ)
-
-2. Pythagoras' Theorem:
-In any right-angled triangle:
-Hypotenuse² = Opposite² + Adjacent²  (c² = a² + b²)
-• Common Pythagorean Triples: (3, 4, 5), (5, 12, 13), (7, 24, 25), (8, 15, 17)
-
-3. Special Angles to Memorize for WAEC/JAMB:
-• sin(30°) = 1/2, cos(30°) = √3/2, tan(30°) = 1/√3
-• sin(45°) = 1/√2, cos(45°) = 1/√2, tan(45°) = 1
-• sin(60°) = √3/2, cos(60°) = 1/2, tan(60°) = √3
-• sin(90°) = 1, cos(90°) = 0
-
-4. Sine and Cosine Rules (for Non-Right-Angled Triangles):
-• Sine Rule: a / sin(A) = b / sin(B) = c / sin(C)
-• Cosine Rule: a² = b² + c² - 2bc × cos(A)`;
-  }
-
-  if (qLower.includes('simultaneous') || qLower.includes('linear equation') || (qLower.includes('solve') && qLower.includes('x') && qLower.includes('y'))) {
-    return `Hello ${firstName}! Here is how to solve Simultaneous Linear Equations:
-
-Solving Simultaneous Equations (Step-by-Step)
-
-Example:
-Equation 1: 2x + 3y = 12
-Equation 2: x - y = 1
-
-Method: Substitution
-• Step 1: From Equation 2, express x in terms of y:
-  x = 1 + y
-• Step 2: Substitute (1 + y) for x in Equation 1:
-  2(1 + y) + 3y = 12
-  2 + 2y + 3y = 12
-  5y = 10  ──>  y = 2
-• Step 3: Substitute y = 2 back to find x:
-  x = 1 + 2 = 3
-• Final Solution: x = 3, y = 2
-
-Verification:
-Check in Eq 1: 2(3) + 3(2) = 6 + 6 = 12 (Correct!)
-Check in Eq 2: 3 - 2 = 1 (Correct!)`;
-  }
-
-  // 4. SCIENCE: PHYSICS, CHEMISTRY & BIOLOGY
-  if (qLower.includes('photo') || qLower.includes('plant') || qLower.includes('chlorophyll') || qLower.includes('leaf')) {
-    return `Hello ${firstName}! Here is your complete guide to Photosynthesis:
-
-Photosynthesis: Chemical Process & Biological Importance
-
-1. Scientific Definition:
-Photosynthesis is the biochemical process by which autotrophic green plants synthesize organic food (glucose) from carbon dioxide and water, using radiant solar energy trapped by chlorophyll, releasing oxygen gas as a byproduct.
-
-2. Balanced Chemical Equation:
-6CO₂ + 6H₂O  ──(Sunlight / Chlorophyll)──>  C₆H₁₂O₆ + 6O₂
-Word Equation: Carbon Dioxide + Water ──> Glucose + Oxygen
-
-3. Two Crucial Stages (WAEC & Cambridge Syllabus):
-• Light-Dependent Phase (in Thylakoid Grana):
-  Light energy absorbed by chlorophyll splits water molecules (photolysis: 2H₂O → 4H⁺ + 4e⁻ + O₂). Generates ATP and NADPH.
-• Light-Independent Phase / Calvin Cycle (in Stroma):
-  Carbon fixation mediated by the enzyme RuBisCO converts CO₂ into glucose using the ATP and NADPH produced in the light stage.
-
-4. Factors Affecting Rate of Photosynthesis:
-• Light intensity, CO₂ concentration, and temperature (optimum 25°C – 35°C; enzymes denature above 45°C).`;
-  }
-
-  if (qLower.includes('newton') || qLower.includes('force') || qLower.includes('motion') || qLower.includes('inertia') || qLower.includes('acceleration')) {
-    return `Hello ${firstName}! Here are Newton's Three Laws of Motion:
-
-Newton's Laws of Motion & Governing Equations
-
-1. First Law of Motion (Law of Inertia):
-"An object remains at rest or continues in uniform motion in a straight line unless acted upon by an external net resultant force."
-• Key Concept: Inertia is the natural reluctance of a body to change its state of rest or motion. Mass is the measure of inertia.
-
-2. Second Law of Motion:
-"The rate of change of momentum of a body is directly proportional to the applied force and takes place in the direction of the force."
-• Formula: Force = Mass × Acceleration (F = ma)
-• Standard SI Units: Force in Newtons (N), mass in kg, acceleration in m/s².
-
-3. Third Law of Motion (Action & Reaction):
-"To every action, there is an equal and opposite reaction."
-• If Body A exerts a force on Body B, Body B exerts an equal and opposite force on Body A (F_AB = -F_BA).
-• Examples: Rocket propulsion, jumping off a boat, recoil of a gun.
-
-Equations of Linear Motion to Remember:
-1. v = u + at
-2. s = ut + (1/2)at²
-3. v² = u² + 2as
-4. s = ((u + v) / 2) × t`;
-  }
-
-  if (qLower.includes('ohm') || qLower.includes('resistan') || qLower.includes('current') || qLower.includes('voltage') || qLower.includes('circuit')) {
-    return `Hello ${firstName}! Here is your complete guide to Current Electricity & Ohm's Law:
-
-Ohm's Law & Electric Circuits
-
-1. Ohm's Law Statement:
-"The electric current flowing through a metallic conductor is directly proportional to the potential difference across its ends, provided temperature and other physical conditions remain constant."
-• Formula: V = I × R
-  - V = Potential Difference / Voltage (Volts, V)
-  - I = Electric Current (Amperes, A)
-  - R = Electrical Resistance (Ohms, Ω)
-
-2. Resistors in Series vs Parallel:
-• Series Connection:
-  - Total Resistance: R_total = R₁ + R₂ + R₃
-  - Current (I) is the same through all resistors; voltage divides (V_total = V₁ + V₂).
-• Parallel Connection:
-  - Total Resistance: 1 / R_total = (1 / R₁) + (1 / R₂) + (1 / R₃)
-  - Voltage (V) is identical across all parallel branches; current divides.
-
-3. Electrical Power & Energy Formulas:
-• Power: P = IV = I²R = V² / R  (Watts, W)
-• Electrical Energy: E = P × t = IVt  (Joules, J)`;
-  }
-
-  if (qLower.includes('acid') || qLower.includes('base') || qLower.includes('ph') || qLower.includes('neutraliz') || qLower.includes('salt')) {
-    return `Hello ${firstName}! Here is the Chemistry of Acids, Bases & Salts:
-
-Acids, Bases, and the pH Scale
-
-1. Acids:
-• Arrhenius Definition: Substances that produce hydrogen ions (H⁺ or H₃O⁺) as the only positive ions in aqueous solution.
-• Properties: Sour taste, turns blue litmus paper red, pH < 7.
-• Examples: Hydrochloric acid (HCl), Tetraoxosulphate(VI) acid (H₂SO₄), Ethanoic acid (CH₃COOH).
-
-2. Bases and Alkalis:
-• Definition: A base is a metallic oxide or hydroxide that reacts with an acid to form salt and water only. A water-soluble base is called an Alkali.
-• Properties: Bitter taste, soapy feel, turns red litmus paper blue, pH > 7.
-• Examples: Sodium hydroxide (NaOH), Calcium hydroxide (Ca(OH)₂).
-
-3. Neutralization Reaction:
-Acid + Base ──> Salt + Water
-• Example: HCl + NaOH ──> NaCl + H₂O
-
-4. The pH Scale (0 to 14):
-• pH 0 – 6.9: Acidic (pH 1 is strongly acidic)
-• pH 7.0: Neutral (pure distilled water at 25°C)
-• pH 7.1 – 14: Alkaline (pH 14 is strongly basic)`;
-  }
-
-  if (qLower.includes('cell') || qLower.includes('organelle') || qLower.includes('nucleus') || qLower.includes('mitochondria')) {
-    return `Hello ${firstName}! Here is the Biology of the Cell for ${classLevel}:
-
-Cell Structure & Organelles: Plant vs Animal Cells
-
-1. Universal Cell Organelles:
-• Nucleus: The control center containing genetic material (DNA/chromosomes).
-• Mitochondria: The "powerhouse" of the cell; site of aerobic cellular respiration producing ATP.
-• Ribosomes: Sites of protein synthesis.
-• Cell Membrane: Semi-permeable lipid bilayer regulating the entry and exit of substances.
-• Cytoplasm: Aqueous matrix where metabolic biochemical reactions take place.
-
-2. Distinct Features of Plant vs Animal Cells:
-• Plant Cells Have:
-  - Rigid cellulose cell wall (provides structural support)
-  - Chloroplasts containing chlorophyll (for photosynthesis)
-  - Large permanent central vacuole with cell sap
-• Animal Cells Have:
-  - No cell wall (flexible shape)
-  - No chloroplasts
-  - Small temporary vacuoles
-  - Centrioles (for cell division spindle formation)
-
-WAEC Drawing Tip: In examination drawings, always underline your title, draw with clean unbroken pencil lines, and ensure label lines do not cross each other!`;
-  }
-
-  if (qLower.includes('concord') || qLower.includes('grammar') || qLower.includes('subject-verb') || qLower.includes('noun') || qLower.includes('verb')) {
-    return `Hello ${firstName}! Here are the essential Rules of Subject-Verb Concord:
-
-Rules of Subject-Verb Concord (WAEC & Cambridge English)
-
-1. General Rule:
-A singular subject takes a singular verb; a plural subject takes a plural verb.
-• "The scholar reads daily." (Singular)
-• "The scholars read daily." (Plural)
-
-2. Subject Connected by 'And':
-When two distinct subjects are joined by 'and', use a plural verb:
-• "Ade and Tolu are in the science laboratory."
-• Exception: If they represent a single concept, use a singular verb:
-  - "Bread and butter is a nutritious breakfast."
-
-3. Words Intervening Between Subject and Verb:
-Parenthetical phrases like 'as well as', 'together with', 'along with', 'in addition to' do NOT change the subject:
-• "The Principal, together with the teachers, is attending the assembly." (Subject is 'Principal' = singular).
-
-4. Neither... Nor / Either... Or (Proximity Rule):
-The verb agrees with the subject closest to it:
-• "Neither the teacher nor the students were present."
-• "Neither the students nor the teacher was present."`;
-  }
-
-  if (qLower.includes('demand') || qLower.includes('supply') || qLower.includes('market equilibrium') || qLower.includes('inflation')) {
-    return `Hello ${firstName}! Here is Economics: The Law of Demand & Supply:
-
-Demand, Supply & Market Equilibrium
-
-1. Law of Demand:
-"Other things being equal (ceteris paribus), the higher the price of a commodity, the lower the quantity demanded; and the lower the price, the higher the quantity demanded."
-• The demand curve slopes downward from left to right.
-
-2. Law of Supply:
-"Other things being equal, the higher the price of a commodity, the higher the quantity supplied; and the lower the price, the lower the quantity supplied."
-• The supply curve slopes upward from left to right.
-
-3. Market Equilibrium:
-Equilibrium occurs at the exact price where Quantity Demanded = Quantity Supplied (Qd = Qs).
-• If Price > Equilibrium Price: Market Surplus (excess supply)
-• If Price < Equilibrium Price: Market Shortage (excess demand)
-
-4. Understanding Inflation:
-Inflation is the persistent and general increase in the price level of goods and services over time.
-• Demand-Pull Inflation: "Too much money chasing too few goods."
-• Cost-Push Inflation: Rising production costs (wages, raw materials, fuel) push prices up.`;
-  }
-
-  // 5. CLASS-TIER DEFAULT ADAPTATION (If not specifically categorized above)
-  if (isEarly) {
-    return `Hello little star, ${firstName}! ⭐
-
-I love how curious you are! In our ${classLevel} class at Stanbax Schools:
-• Everything in our world has a special name, bright color, and purpose!
-• When we learn something new, we listen with big smiles and practice happily.
-
-Keep asking questions and shining bright every day! 🌟`;
-  }
+  // General academic response tailored strictly to class level and subject domain
+  const isPrimary = classLevel.toLowerCase().includes('primary') || classLevel.toLowerCase().includes('basic') || classLevel.toLowerCase().includes('grade');
+  const isJunior = classLevel.toLowerCase().includes('jss') || classLevel.toLowerCase().includes('junior');
+  const isSenior = classLevel.toLowerCase().includes('sss') || classLevel.toLowerCase().includes('ss ') || classLevel.toLowerCase().includes('senior');
 
   if (isPrimary) {
-    return `Hello ${firstName}! Here is your Primary School guide for ${classLevel}:
-
-Topic Inquiry: "${question}"
-
-1. What this means in simple words:
-When we take any school topic one step at a time, it becomes easy to understand!
-
-2. 3 Key Study Steps:
-• Step 1: Read your textbook definition carefully and say it in your own words.
-• Step 2: Write down 2 practical examples from daily life (at home or in school).
-• Step 3: Practice answering a textbook review question to test yourself.
-
-Superstar Study Tip:
-Explain this topic to a friend or parent today! Teaching someone else is the fastest way to master your school work. ⭐`;
-  }
-
-  if (isJunior) {
-    return `Hello ${firstName}! Here is your Junior Secondary academic breakdown for ${classLevel} (BECE & Cambridge Checkpoint Standard):
+    return `Hello ${studentName}! Here is your Primary School guide for ${classLevel}:
 
 Topic: "${question}"
 
-1. Core Curriculum Overview:
-In Junior Secondary, mastering this topic requires understanding the governing definitions and how they connect to the Nigerian National Curriculum (NERDC) and Cambridge Checkpoint standards.
+1. What this means in simple terms:
+Think of this concept like something we see every day at school or at home. When we break it down into small, easy steps, it becomes much simpler to understand!
 
-2. Structured Academic Methodology:
-• Identify the core scientific, mathematical, or literary principles involved.
-• If this is a calculation: state the standard formula, show all numerical substitutions clearly, and compute step-by-step with proper SI units.
-• If this is a descriptive topic: define the main terms clearly and provide 3 distinct characteristics or functions.
+2. Step-by-Step Breakdown:
+• Step 1: Read the problem carefully and pick out the most important words or numbers.
+• Step 2: Remember our classroom rule—always write down what you are given first before finding the answer.
+• Step 3: Check your work slowly to make sure you did not skip any small step.
 
-3. Junior WAEC / BECE Examination Tip:
-Examiners always award separate marks for showing intermediate working steps. Never write down just a final answer—secure your full method marks!`;
+3. Fun Classroom Memory Tip:
+Practice explaining this in your own words to your study partner or parent today! Teaching someone else is the fastest way to become a superstar in your class. ⭐
+
+Keep up the wonderful curiosity, ${studentName}! What part would you like us to practice together next?`;
   }
 
-  // Senior Secondary (SSS 1 - 3 / WASSCE / NECO / JAMB / IGCSE)
-  return `${isPremium ? 'Calvin Premium Masterclass • ' : ''}Academic Guidance for ${firstName} (${classLevel})
+  if (isJunior) {
+    return `Hello ${studentName}! Here is your Junior Secondary academic breakdown for ${classLevel} (BECE & Cambridge Checkpoint Standard):
 
+Subject Investigation: "${question}"
+
+1. Conceptual Overview:
+In Junior Secondary, mastering this topic requires understanding the core definitions and how they connect to the Nigerian National Curriculum (NERDC) and British Checkpoint specifications.
+
+2. Structured Academic Methodology:
+• Identify the core subject principles involved.
+• If this is a calculation: state the standard formula, show all numerical substitutions clearly, and compute step-by-step with proper SI units.
+• If this is a descriptive or theoretical topic: define the main terms clearly, outline 3 distinct characteristics or functions, and provide a relatable Nigerian or everyday example.
+
+3. Junior WAEC / BECE Examination Tip:
+Examiners always award separate marks for showing your working steps. Never write down just a final answer—secure your full method marks by showing each intermediate line!
+
+Feel free to ask a follow-up drill or give me a specific problem to solve together, ${studentName}!`;
+  }
+
+  // Default: Senior Secondary (SSS 1 - 3 / WASSCE / NECO / JAMB / IGCSE)
+  return `${isPremium ? 'Calvin Premium Masterclass • ' : ''}Academic Guidance for ${studentName} (${classLevel})
 Syllabus Inquiry: "${question}"
 
-1. Conceptual Definition & Principles:
-At the Senior Secondary level, this topic represents an essential component of the WAEC WASSCE, NECO SSCE, JAMB UTME, and Cambridge IGCSE syllabi. Master the foundational principles and technical definitions.
+1. Conceptual Definition & Foundational Principles:
+At the Senior Secondary level, this topic represents a foundational building block for WAEC WASSCE, NECO SSCE, JAMB UTME, and Cambridge IGCSE syllabi. Approach it by first articulating the exact scientific, mathematical, or literary definition.
 
 2. Systematic Analytical Approach:
 • Parameter Identification: Extract given variables, boundary conditions, or textual references.
-• Theoretical Framework: State the governing scientific law, mathematical relation, or analytical model before executing steps.
+• Theoretical Framework: State the governing law, mathematical relation, or analytical model before executing calculations or constructing arguments.
 • Sequential Execution: Solve or analyze systematically, maintaining dimensional consistency and standard SI units throughout.
-• Result Verification: Cross-check your answer using alternative methods or inverse calculations.
+• Result Verification: Cross-check your answer using alternative methods (e.g. dimensional analysis or inverse operations).
 
-3. Senior Examiner Strategy:
-WAEC and Cambridge markers award distinct method marks independent of the final answer. Never omit intermediate working lines!
+3. Stanbax Senior Examiner Insights:
+WAEC and Cambridge markers specifically look for clear technical terminology, standard mathematical notation (never omit intermediate lines), and correct units in final values.
 
-Feel free to ask a follow-up drill or give me a specific past-paper question to solve with you!`;
+${isPremium ? '✨ Premium Masterclass Privilege: Would you like me to generate a 5-question WAEC past-paper drill, a step-by-step derivation, or an exam mnemonic for this exact topic?' : 'Ask me any follow-up question or share a specific past paper question and I will break it down for you step by step!'}`;
 }
 
 async function startServer() {
@@ -1695,23 +1420,18 @@ CRITICAL RULES:
     });
   });
 
-  // Student Portal & Public Website Calvin AI Chat Endpoint
+  // Student Portal Calvin AI Chat Endpoint
   app.post("/api/calvin-chat", async (req, res) => {
     const {
       message = "",
       studentName = "Scholar",
-      role = "student",
+      classLevel = "SSS 2",
+      tier = "regular",
       chatHistory = [],
       subject = "",
       schemeOfWork = null,
       term = "2nd Term"
     } = req.body;
-
-    const classLevel = (role === 'guest' || role === 'visitor') 
-      ? (req.body.classLevel || 'Prospective Admission') 
-      : (req.body.classLevel || 'SSS 2');
-
-    const tier = req.body.tier || 'premium';
 
     if (!message.trim()) {
       return res.status(400).json({ success: false, error: "Question message is required" });
@@ -1736,8 +1456,7 @@ CRITICAL RULES:
       classLevel.toLowerCase().includes('sss') || 
       classLevel.toLowerCase().includes('ss');
 
-    const isVisitorOrParent = role === 'guest' || role === 'visitor' || role === 'parent';
-    const isPremium = tier === 'premium' || isVisitorOrParent;
+    const isPremium = tier === 'premium';
 
     // Scheme of Work grounding context
     let schemeGroundingSection = '';
@@ -1762,52 +1481,59 @@ MANDATORY INSTRUCTIONS FOR THIS SCHEME OF WORK:
 4. If the scholar's question touches multiple weeks, clearly connect the earlier foundational week to the later advanced week.`;
     }
 
-    // System instruction tailored to age, class, role, and institutional knowledge
-    const systemInstruction = `You are Calvin, the official 24/7 AI Ambassador, Academic Tutor, and School Companion for Stanbax Schools Ibadan, an esteemed Nigerian-British curriculum institution located in Ibadan, Oyo State, Nigeria.
-You are interacting with ${studentName} (${role === 'guest' || role === 'visitor' ? 'Prospective Parent or Community Visitor' : role === 'parent' ? 'Registered Parent/Guardian' : `Enrolled ${classLevel} Scholar`}).
+    // System instruction tailored to age, class, token tier, and uploaded Scheme of Work
+    const systemInstruction = `You are Calvin, the personal AI Academic Tutor and Study Companion for Stanbax Schools Ibadan, an esteemed Nigerian-British curriculum school in Ibadan, Oyo State, Nigeria.
+You are interacting with ${studentName}, who is currently enrolled in ${classLevel}.
 ${subject ? `Current Subject Area: ${subject}` : ''}
 ${schemeGroundingSection}
 
-CORE INSTITUTIONAL FACTS & KNOWLEDGE BASE (ALWAYS ACCURATE & AUTHORITATIVE):
-- Name: Stanbax Schools Ibadan
-- Motto: "Excellence, Character & Global Leadership"
-- Established: 2007 by Mrs. Adebisi Folashade Bello (Proprietress, Founder & Visionary)
-- Campus Address: Beside Ikolaba High School, No. 9 Ojo Ikolaba Road, Ikolaba, Ibadan, Oyo State, Nigeria
-- Admissions Contacts: Phone: +234 803 123 4567 / +234 802 887 6543 | WhatsApp: +234 803 123 4567 | Email: admissions@stanbaxschools.edu.ng / info@stanbaxschools.edu.ng
-- Office Visiting Hours: Monday through Friday: 07:30 AM – 04:30 PM
-- Curricula: Dual British-Nigerian Curriculum (NERDC Basic Education & Senior Secondary, Cambridge Checkpoint, WAEC WASSCE, NECO SSCE, JAMB UTME, Cambridge IGCSE)
-- Grade Tiers:
-  • Crèche & Toddler Playgroup (3 months - 2 years): ₦120,000 / term
-  • Nursery 1 & 2 (Ages 3-5): ₦135,000 – ₦140,000 / term
-  • Lower Primary (Basic 1 - 3): ₦155,000 – ₦165,000 / term
-  • Upper Primary (Basic 4 - 6): ₦170,000 – ₦190,000 / term
-  • Junior Secondary (JSS 1 - 3): ₦210,000 – ₦225,000 / term
-  • Senior Secondary (SSS 1 - 3): ₦240,000 – ₦265,000 / term (Sciences, Arts/Humanities, Commercial, Technology)
-  • Flexible installment payment plans available through the School Bursary (60% at resumption, 40% before mid-term).
-- Facilities: State-of-the-art Science Laboratories, ICT & Robotics Coding Studio, Creative Arts & Music Suite, Football Field, Track Athletics, Air-Conditioned Library, Sickbay staffed with certified nurses, and a fleet of secure air-conditioned school buses servicing Bodija, Oluyole, Jericho, Agodi, Ring Road, Akobo, Samonda.
-- Academic Session: 2026/2027 Academic Session (1st Term Michaelmas Sept-Dec, 2nd Term Lent Jan-Apr, 3rd Term Trinity Apr-July).
-- House System: Blue Falcons, Green Eagles, Yellow Cheetahs, Red Jaguars.
+PEDAGOGICAL PERSONA & CLASS-LEVEL ADAPTATION:
+${isEarlyYears ? `
+- TARGET AUDIENCE: Early Childhood (Ages 3-6 / Nursery & Reception).
+- TONE: Warm, motherly/fatherly, encouraging, gentle, and enthusiastic!
+- STYLE: Very simple language, short words, rhyming concepts where fun.
+- VISUALS: Use vivid child-friendly emojis (🍎, 🌟, 🎈, 🐱, 🚀, 📚) to illustrate points.
+- Always celebrate effort with praise ("Great job, ${studentName}!", "You are a shining star! ⭐").
+` : isPrimary ? `
+- TARGET AUDIENCE: Primary School (Ages 6-11 / Basic 1 to 6).
+- TONE: Friendly, patient, structured, and inspiring.
+- STYLE: Clear, easy-to-understand definitions, step-by-step arithmetic breakdown, relatable Nigerian real-world analogies (market shopping in naira, school garden, rainfall, food crops).
+- Encourage curiosity and end with a quick gentle check question or cheerful cheer!
+` : isJuniorSec ? `
+- TARGET AUDIENCE: Junior Secondary School (Ages 11-14 / JSS 1 to 3).
+- CURRICULUM: Aligned with Nigerian BECE / Junior WAEC standards and British Cambridge Checkpoint syllabus.
+- TONE: Motivating, scholastic, respectful.
+- STYLE: Systematic breakdown of concepts in Basic Science, Basic Tech, Mathematics, English grammar, Business Studies, Social Studies, and Civic Education. Break down calculations line by line with formulas.
+` : `
+- TARGET AUDIENCE: Senior Secondary School (Ages 14-18 / SSS 1 to 3).
+- CURRICULUM: WAEC WASSCE, NECO SSCE, JAMB UTME, and Cambridge IGCSE standards.
+- TONE: Scholarly, intellectually rigorous, empowering, and focused on exam mastery.
+- STYLE: Academic precision. When answering science/math problems, provide formula statements, SI units, algebraic substitutions, and final answers with units clearly highlighted. For humanities/commercial, provide structured points, legal/economic definitions, and analytical depth.
+`}
 
-TWO MODES OF OPERATION:
-1. SCHOOL INQUIRIES & ADMISSIONS AMBASSADOR MODE:
-If the user asks about admissions, enrollment, tuition fees, campus visits, school history, facilities, resumption dates, or contact channels, respond warmly and courteously as the premier Ambassador of Stanbax Schools. Provide clear, structured, professional information with official contact details.
-
-2. ACADEMIC TUTORING MODE:
-If the user asks an academic question (Mathematics, Physics, Chemistry, Biology, English, Literature, Economics, Government, Computer Science, etc.):
-- Provide a deep, accurate, step-by-step educational breakdown!
-- Never give lazy or generic answers like "think of this topic like something around you". Give real definitions, formulas, worked examples with numbers, derivations, and exam secrets!
-- For Mathematics & Physics: write down the governing formula, show every substitution step clearly, compute intermediate values, and state the final answer with units!
-- For Chemistry & Biology: give balanced chemical equations, cell organelles, biological phases, and examiner tips!
-- For English: state parts of speech, rules of concord with examples, or essay/letter structures!
-- Tailor the depth and vocabulary to the student's grade level (${classLevel}).
+TOKEN TIER CAPABILITY LEVEL (${isPremium ? 'PREMIUM MASTERCLASS' : 'REGULAR TIER'}):
+${isPremium ? `
+- The student is using a PREMIUM TOKEN authorized by the School Administrator.
+- Provide the HIGHEST QUALITY, IN-DEPTH, MASTERCLASS explanations.
+- Structure explanations into clear, organized sections:
+  1. Direct Concept Summary / Definition
+  2. Step-by-Step Derivation / Worked Examples
+  3. Mnemonic / Memory Trick to recall concepts easily
+  4. WAEC / NECO / JAMB / Cambridge Exam Secrets & Pitfalls to avoid
+  5. Quick Practice Question for self-testing!
+` : `
+- The student is using a REGULAR TOKEN.
+- Provide concise, accurate, clear, and encouraging explanations tailored to their class syllabus.
+`}
 
 CRITICAL STUDENT-FRIENDLY FORMATTING RULES (STRICTLY ENFORCED):
 - NEVER use markdown hash symbols (#, ##, ###, ####) for titles or section headings. Simply write clean titles on their own line followed by a blank line, or use simple bold section headers.
-- NEVER use the caret symbol (^) for exponents or powers! Always use standard unicode superscript characters (such as ², ³, ⁴, ⁿ, ⁻¹, ⁻², 10⁵, m/s², cm³) or spell out words like "squared".
+- NEVER use the caret symbol (^) for exponents or powers! Primary and secondary school students find raw carets confusing. Always use standard unicode superscript characters (such as ², ³, ⁴, ⁿ, ⁻¹, ⁻², 10⁵, m/s², cm³) or spell out words like "squared" or "to the power of". Scholars must NEVER see raw '^' characters.
 - NEVER use asterisks (*) for bullet points. Use standard clean bullet dots (•) or numbered lists (1., 2., 3.).
 - In math calculations, NEVER use an asterisk (*) for multiplication. Always use the multiplication sign (×), e.g., "3 × 4 = 12".
-- NEVER output raw LaTeX codes or math delimiters like $$, \\text{}, \\frac{}{}, \\times, or \\pm. Format formulas in clean, natural readable text: e.g., "x = (-b ± √(b² - 4ac)) / (2a)", "Area = πr²", "v = u + at".
-- Address the user warmly as ${studentName || 'Scholar'}.`;
+- NEVER output raw LaTeX codes or math delimiters like $$, \\text{}, \\frac{}{}, \\times, or \\pm. Format formulas in clean, natural readable text: e.g., "x = (-b ± √(b² - 4ac)) / (2a)", "Area = πr²", "v = u + at" so students can read and understand immediately without programming syntax.
+- Address the scholar warmly as ${studentName}.
+- Keep answers educational, respectful, inspiring, and aligned with standard Nigerian-British curriculum guidelines.`;
 
     const ai = getGeminiClient();
 
@@ -1816,7 +1542,7 @@ CRITICAL STUDENT-FRIENDLY FORMATTING RULES (STRICTLY ENFORCED):
       return res.json({
         success: true,
         reply: sanitizeStudentFriendlyText(fallbackReply),
-        tier: isPremium ? 'premium' : 'regular',
+        tier,
         source: "academic_engine"
       });
     }
@@ -1887,6 +1613,205 @@ CRITICAL STUDENT-FRIENDLY FORMATTING RULES (STRICTLY ENFORCED):
         source: "academic_engine"
       });
     }
+  });
+
+  // Deterministic Fallback Engine for School Representative Chat
+  function generateVisitorRepFallback(
+    message: string,
+    visitorName: string,
+    repName: string,
+    repTitle: string,
+    repRole: string
+  ): string {
+    const m = message.toLowerCase();
+    
+    if (m.includes('fee') || m.includes('cost') || m.includes('price') || m.includes('tuition') || m.includes('pay') || m.includes('bursar') || m.includes('account')) {
+      return `Hello ${visitorName}! Thank you for your inquiry regarding Stanbax Schools tuition and bursary schedules.\n\nOur statutory fees are structured transparently with flexible installment payment plans:\n• Early Years & Nursery: ₦120,000 – ₦145,000 per term\n• Primary School (Basic 1 – 6): ₦160,000 – ₦185,000 per term\n• Junior Secondary (JSS 1 – 3): ₦210,000 – ₦240,000 per term\n• Senior Secondary (SSS 1 – 3): ₦250,000 – ₦280,000 per term\n\nTuition includes STEM lab access, continuous assessments, digital library, and sports club memberships. Flexible 2-part termly installments are supported upon application to the Bursar's Office.\n\n${repName} (${repTitle}) has been notified of your query and can provide an itemized schedule upon review!`;
+    }
+
+    if (m.includes('admiss') || m.includes('apply') || m.includes('enrol') || m.includes('register') || m.includes('form') || m.includes('entrance') || m.includes('exam')) {
+      return `Hello ${visitorName}! Admissions for the upcoming academic session at Stanbax Schools Ibadan are currently open for Creche, Nursery, Primary (Basic 1–6), and Secondary (JSS 1–SSS 2).\n\nKey Steps to Enroll:\n1. Online Registration: Click the 'Admissions' portal tab on our website or visit the campus administrative office.\n2. Entrance Screening & CBT: Prospective scholars complete a diagnostic evaluation in English, Mathematics, and General Aptitude.\n3. Interactive Interview: Both student and parents meet with our guidance counselors and the Principal.\n4. Offer of Provisional Admission.\n\n${repName} (${repTitle}) will be pleased to schedule a priority screening slot or campus tour for your family!`;
+    }
+
+    if (m.includes('locat') || m.includes('address') || m.includes('where') || m.includes('bus') || m.includes('route') || m.includes('transport') || m.includes('ibadan')) {
+      return `Hello ${visitorName}! Stanbax Schools is centrally located in Ibadan at:\n📍 12 Excellence Avenue, Bodija / Oluyole Way, Ibadan, Oyo State, Nigeria.\n\nTransportation Services:\nWe operate a modern, air-conditioned school bus fleet covering Bodija, Oluyole Estate, Ring Road, Akobo, Jericho, and Secretariat corridors with trained chaperones and GPS tracking.\n\nCampus visiting hours are Monday – Friday, 8:00 AM – 4:00 PM. ${repName} (${repTitle}) looks forward to welcoming you!`;
+    }
+
+    if (m.includes('curriculum') || m.includes('waec') || m.includes('neco') || m.includes('jamb') || m.includes('cambridge') || m.includes('subject') || m.includes('igcse')) {
+      return `Hello ${visitorName}! Stanbax Schools offers a robust dual British-Nigerian integrated curriculum designed for academic distinction:\n\n• National Curriculum: Prepares candidates for BECE, WAEC WASSCE, and NECO SSCE with a 99.4% distinction record.\n• International Track: Cambridge IGCSE, Checkpoint, and SAT/IELTS preparation.\n• STEM & Practical Sciences: Coding, Robotics, AI literacy (via Calvin AI), and hands-on laboratory experiments.\n\n${repName} (${repTitle}) and our academic deans ensure every scholar receives individualized mentorship.`;
+    }
+
+    return `Hello ${visitorName}! Thank you for reaching out to Stanbax Schools Ibadan.\n\n${repName} (${repTitle}) is currently attending to campus operations, so I am assisting you as Calvin AI, the official Stanbax Virtual Representative.\n\nWe provide world-class education from Creche through Senior Secondary (SSS 3), anchored on academic rigor, moral character, and global leadership. We would love to assist you with admissions, tuition schedules, bus routes, or an on-site tour.\n\nYour message is safely recorded in our admissions register, and ${repName} will also review this thread upon return!`;
+  }
+
+  // Landing Page Visitor Representative Chat Endpoint (Calvin AI acting as Representative when rep is away)
+  app.post("/api/visitor-rep-chat", async (req, res) => {
+    const {
+      message = "",
+      visitorName = "Prospective Parent",
+      repName = "Mrs. Bello",
+      repTitle = "School Principal & Head of Administration",
+      repRole = "principal",
+      chatHistory = []
+    } = req.body;
+
+    if (!message.trim()) {
+      return res.status(400).json({ success: false, error: "Inquiry message is required" });
+    }
+
+    const ai = getGeminiClient();
+
+    if (!ai) {
+      const fallbackReply = generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+      return res.json({
+        success: true,
+        reply: fallbackReply,
+        source: "representative_engine"
+      });
+    }
+
+    try {
+      const systemInstruction = `
+You are Calvin AI, the official intelligent Virtual Representative and Admissions Aide for Stanbax Schools Ibadan.
+You are acting warmly and authoritatively on behalf of ${repName} (${repTitle} - ${repRole.toUpperCase()}) who is currently away attending to school administrative and campus duties.
+
+YOUR PRIMARY GOALS:
+1. Greet the visitor (${visitorName}) warmly and address their inquiry with accurate, reassuring, and detailed information about Stanbax Schools Ibadan.
+2. Represent the designated role (${repRole}):
+   - If BURSAR: Address tuition structure, payment installments, statutory fee inclusions (books, uniforms, STEM kit), bursary clearance, and transparent billing.
+   - If PRINCIPAL: Address academic standards, dual British-Nigerian curriculum (WAEC, NECO, JAMB, Cambridge IGCSE, BECE), school discipline, moral virtues, leadership programs, and teacher qualifications.
+   - If ADMISSIONS: Address enrollment procedures, age requirements (Creche, Nursery, Basic 1-6, JSS 1-3, SSS 1-3), entrance examination dates, and screening documents.
+   - If REPRESENTATIVE: Provide a comprehensive school overview, campus tours, transportation bus routes, and general inquiries.
+3. Stanbax Schools Ibadan Facts:
+   - Location: 12 Excellence Avenue, Bodija / Oluyole Way, Ibadan, Oyo State, Nigeria.
+   - Contact Phone: +234 803 123 4567 | Email: admissions@stanbaxschools.edu.ng.
+   - Facilities: Modern STEM Robotics & Computer Laboratories, Sick-Bay Clinic with Registered Nurses, Air-Conditioned School Bus Fleet, Sports Pavilions, Ultra-Modern Digital Library & Timed CBT Examination Hall.
+   - School Virtue: Excellence, Character & Global Leadership.
+4. Tone & Style:
+   - Courteous, professional, warm, and articulate.
+   - Reassure the visitor that their full query and this transcript are retained and that ${repName} will review it upon returning to the desk and can follow up directly.
+   - Keep answers easy to read on mobile (short paragraphs or clear bullet points).
+`;
+
+      const formattedHistory: any[] = [];
+      if (Array.isArray(chatHistory)) {
+        for (const item of chatHistory.slice(-8)) {
+          if (item.sender === 'visitor') {
+            formattedHistory.push({
+              role: 'user',
+              parts: [{ text: item.content }]
+            });
+          } else {
+            formattedHistory.push({
+              role: 'model',
+              parts: [{ text: item.content }]
+            });
+          }
+        }
+      }
+
+      formattedHistory.push({
+        role: 'user',
+        parts: [{ text: `[Visitor: ${visitorName}] Inquiry: ${message}` }]
+      });
+
+      const { response } = await generateWithGemini(ai, {
+        contents: formattedHistory,
+        config: {
+          systemInstruction,
+          temperature: 0.6,
+          maxOutputTokens: 1024,
+        }
+      });
+
+      const reply = response.text || generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+
+      return res.json({
+        success: true,
+        reply,
+        source: "gemini_ai"
+      });
+    } catch (err: any) {
+      console.warn("Visitor Rep Gemini API error:", err?.message || err);
+      const fallbackReply = generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+      return res.json({
+        success: true,
+        reply: fallbackReply,
+        source: "representative_engine"
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Real-Time Chat Typing Indicators & Delivery/Acknowledgment Service
+  // ---------------------------------------------------------------------------
+  interface TypingState {
+    sender: 'representative' | 'visitor';
+    senderName?: string;
+    updatedAt: number;
+  }
+  const activeTypingMap = new Map<string, Map<string, TypingState>>();
+
+  app.post("/api/chat-typing", (req, res) => {
+    const { conversationId, sender, senderName, isTyping } = req.body;
+    if (!conversationId || !sender) {
+      return res.status(400).json({ error: "conversationId and sender required" });
+    }
+
+    let convMap = activeTypingMap.get(conversationId);
+    if (!convMap) {
+      convMap = new Map();
+      activeTypingMap.set(conversationId, convMap);
+    }
+
+    if (isTyping) {
+      convMap.set(sender, {
+        sender,
+        senderName: senderName || (sender === 'representative' ? 'School Representative' : 'Visitor'),
+        updatedAt: Date.now(),
+      });
+    } else {
+      convMap.delete(sender);
+    }
+
+    return res.json({ success: true });
+  });
+
+  app.get("/api/chat-typing/:conversationId", (req, res) => {
+    const { conversationId } = req.params;
+    const now = Date.now();
+    const convMap = activeTypingMap.get(conversationId);
+
+    let isRepTyping = false;
+    let repName = "";
+    let isVisitorTyping = false;
+    let visitorName = "";
+
+    if (convMap) {
+      for (const [sender, state] of convMap.entries()) {
+        // Expire typing states older than 4.5 seconds
+        if (now - state.updatedAt > 4500) {
+          convMap.delete(sender);
+          continue;
+        }
+        if (sender === 'representative') {
+          isRepTyping = true;
+          repName = state.senderName || 'School Representative';
+        } else if (sender === 'visitor') {
+          isVisitorTyping = true;
+          visitorName = state.senderName || 'Visitor';
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      isRepTyping,
+      repName,
+      isVisitorTyping,
+      visitorName,
+      timestamp: now,
+    });
   });
 
   // Vite middleware for development

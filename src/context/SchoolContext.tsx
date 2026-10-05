@@ -79,7 +79,11 @@ import {
   UserEphemeralStatus,
   SchoolNewsArticle,
   StudentArticleSubmission,
-  StatusViewerRecord
+  StatusViewerRecord,
+  SchoolRepRole,
+  SchoolRepConfig,
+  VisitorChatMessage,
+  VisitorConversation
 } from '../types';
 import { cleanExpiredStatuses, create16HourStatus, INITIAL_EPHEMERAL_STATUSES } from '../data/defaultEphemeralStatuses';
 import { DEFAULT_GALLERY_PHOTOS } from '../data/defaultGalleryPhotos';
@@ -132,7 +136,9 @@ import {
   DEFAULT_LIBRARY_BOOKS,
   DEFAULT_CBT_ATTEMPTS,
   DEFAULT_CHAT_CHANNELS,
-  DEFAULT_CHAT_MESSAGES
+  DEFAULT_CHAT_MESSAGES,
+  DEFAULT_SCHOOL_REP_CONFIG,
+  DEFAULT_VISITOR_CONVERSATIONS
 } from '../data/schoolData';
 
 interface SchoolContextType {
@@ -582,6 +588,17 @@ interface SchoolContextType {
   studentSubmissions: StudentArticleSubmission[];
   submitArticleForReview: (submission: Omit<StudentArticleSubmission, 'id' | 'submittedAt' | 'status'>) => void;
   reviewStudentSubmission: (id: string, decision: 'approved' | 'rejected', reason?: string) => void;
+
+  // 32. School Representative & Landing Page Visitor Live Chat
+  schoolRepConfig: SchoolRepConfig;
+  updateSchoolRepConfig: (updates: Partial<SchoolRepConfig>) => void;
+  toggleRepAvailability: (available?: boolean) => void;
+  visitorConversations: VisitorConversation[];
+  sendVisitorMessage: (visitorId: string, message: string, visitorInfo?: { name?: string; phone?: string; email?: string; category?: any }) => Promise<VisitorChatMessage | null>;
+  replyAsRepresentative: (visitorId: string, replyContent: string, repInfo?: { name?: string; title?: string }) => void;
+  requestCalvinAiInstantReply: (visitorId: string) => Promise<VisitorChatMessage | null>;
+  getVisitorConversation: (visitorId: string) => VisitorConversation | undefined;
+  markVisitorConversationRead: (visitorId: string) => void;
 }
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
@@ -2792,82 +2809,80 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(cleanId, cleanPass);
       if (!res.unreachable) {
-        if (res.ok) {
-          const role = res.role as UserRole;
-          const sectionByRole: Record<UserRole, PageSection> = {
-            admin: 'admin-portal',
-            proprietress: 'proprietress-portal',
-            tutor: 'tutor-portal',
-            student: 'student-portal',
-            parent: 'parent-portal',
-          };
-          const matchedStudent = res.refId ? students.find(s => s.id === res.refId) : undefined;
-          switch (role) {
-            case 'admin':
-              setIsAdminAuthenticated(true);
-              localStorage.setItem('stanbax_admin_auth', 'true');
-              sessionStorage.setItem('stanbax_admin_auth', 'true');
-              localStorage.setItem('stanbax_active_section', 'admin-portal');
-              sessionStorage.setItem('stanbax_active_section', 'admin-portal');
-              break;
-            case 'proprietress':
-              setIsProprietressAuthenticated(true);
-              localStorage.setItem('stanbax_proprietress_auth', 'true');
-              sessionStorage.setItem('stanbax_proprietress_auth', 'true');
-              localStorage.setItem('stanbax_active_section', 'proprietress-portal');
-              sessionStorage.setItem('stanbax_active_section', 'proprietress-portal');
-              break;
-            case 'tutor':
-              setIsTutorAuthenticated(true);
-              if (res.refId) {
-                setActiveTutorId(res.refId);
-                localStorage.setItem('stanbax_tutor_id', res.refId);
-                sessionStorage.setItem('stanbax_tutor_id', res.refId);
-              }
-              localStorage.setItem('stanbax_tutor_auth', 'true');
-              sessionStorage.setItem('stanbax_tutor_auth', 'true');
-              localStorage.setItem('stanbax_active_section', 'tutor-portal');
-              sessionStorage.setItem('stanbax_active_section', 'tutor-portal');
-              break;
-            case 'student':
-              setIsStudentAuthenticated(true);
-              if (res.refId) {
-                setActiveStudentId(res.refId);
-                localStorage.setItem('stanbax_student_id', res.refId);
-                sessionStorage.setItem('stanbax_student_id', res.refId);
-              }
-              localStorage.setItem('stanbax_student_auth', 'true');
-              sessionStorage.setItem('stanbax_student_auth', 'true');
-              localStorage.setItem('stanbax_active_section', 'student-portal');
-              sessionStorage.setItem('stanbax_active_section', 'student-portal');
-              break;
-            case 'parent':
-              setIsParentAuthenticated(true);
-              if (res.refId) {
-                setActiveParentId(res.refId);
-                localStorage.setItem('stanbax_parent_id', res.refId);
-                sessionStorage.setItem('stanbax_parent_id', res.refId);
-              }
-              localStorage.setItem('stanbax_parent_auth', 'true');
-              sessionStorage.setItem('stanbax_parent_auth', 'true');
-              localStorage.setItem('stanbax_active_section', 'parent-portal');
-              sessionStorage.setItem('stanbax_active_section', 'parent-portal');
-              break;
-          }
-          // Hydrate + reload into the portal (never returns in practice).
-          await completeRemoteLogin(res.token!, sectionByRole[role]);
-          return {
-            success: true,
-            role,
-            targetSection: sectionByRole[role],
-            isAlumni: !!matchedStudent?.isAlumni,
-          };
-        } else if (res.message && res.message.toLowerCase().includes('incorrect password')) {
-          return { success: false, message: 'Incorrect password.' };
+        if (!res.ok) {
+          return { success: false, message: res.message || 'Invalid credentials.' };
         }
-        // Account not found in remote database -> fall through to check local registry
+        const role = res.role as UserRole;
+        const sectionByRole: Record<UserRole, PageSection> = {
+          admin: 'admin-portal',
+          proprietress: 'proprietress-portal',
+          tutor: 'tutor-portal',
+          student: 'student-portal',
+          parent: 'parent-portal',
+        };
+        const matchedStudent = res.refId ? students.find(s => s.id === res.refId) : undefined;
+        switch (role) {
+          case 'admin':
+            setIsAdminAuthenticated(true);
+            localStorage.setItem('stanbax_admin_auth', 'true');
+            sessionStorage.setItem('stanbax_admin_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'admin-portal');
+            sessionStorage.setItem('stanbax_active_section', 'admin-portal');
+            break;
+          case 'proprietress':
+            setIsProprietressAuthenticated(true);
+            localStorage.setItem('stanbax_proprietress_auth', 'true');
+            sessionStorage.setItem('stanbax_proprietress_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'proprietress-portal');
+            sessionStorage.setItem('stanbax_active_section', 'proprietress-portal');
+            break;
+          case 'tutor':
+            setIsTutorAuthenticated(true);
+            if (res.refId) {
+              setActiveTutorId(res.refId);
+              localStorage.setItem('stanbax_tutor_id', res.refId);
+              sessionStorage.setItem('stanbax_tutor_id', res.refId);
+            }
+            localStorage.setItem('stanbax_tutor_auth', 'true');
+            sessionStorage.setItem('stanbax_tutor_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'tutor-portal');
+            sessionStorage.setItem('stanbax_active_section', 'tutor-portal');
+            break;
+          case 'student':
+            setIsStudentAuthenticated(true);
+            if (res.refId) {
+              setActiveStudentId(res.refId);
+              localStorage.setItem('stanbax_student_id', res.refId);
+              sessionStorage.setItem('stanbax_student_id', res.refId);
+            }
+            localStorage.setItem('stanbax_student_auth', 'true');
+            sessionStorage.setItem('stanbax_student_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'student-portal');
+            sessionStorage.setItem('stanbax_active_section', 'student-portal');
+            break;
+          case 'parent':
+            setIsParentAuthenticated(true);
+            if (res.refId) {
+              setActiveParentId(res.refId);
+              localStorage.setItem('stanbax_parent_id', res.refId);
+              sessionStorage.setItem('stanbax_parent_id', res.refId);
+            }
+            localStorage.setItem('stanbax_parent_auth', 'true');
+            sessionStorage.setItem('stanbax_parent_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'parent-portal');
+            sessionStorage.setItem('stanbax_active_section', 'parent-portal');
+            break;
+        }
+        // Hydrate + reload into the portal (never returns in practice).
+        await completeRemoteLogin(res.token!, sectionByRole[role]);
+        return {
+          success: true,
+          role,
+          targetSection: sectionByRole[role],
+          isAlumni: !!matchedStudent?.isAlumni,
+        };
       }
-      // unreachable / not found in remote -> fall through to local demo credentials below
+      // unreachable → fall through to local demo credentials below
     }
 
     // 1. Check Administrator
@@ -3023,7 +3038,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const logoutAdmin = () => {
-    void remoteLogout();
     setIsAdminAuthenticated(false);
     localStorage.removeItem('stanbax_admin_auth');
     sessionStorage.removeItem('stanbax_admin_auth');
@@ -3061,7 +3075,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const logoutProprietress = () => {
-    void remoteLogout();
     setIsProprietressAuthenticated(false);
     localStorage.removeItem('stanbax_proprietress_auth');
     sessionStorage.removeItem('stanbax_proprietress_auth');
@@ -3131,7 +3144,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const logoutTutor = () => {
-    void remoteLogout();
     setIsTutorAuthenticated(false);
     localStorage.removeItem('stanbax_tutor_auth');
     localStorage.removeItem('stanbax_tutor_id');
@@ -3206,7 +3218,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const logoutStudent = () => {
-    void remoteLogout();
     setIsStudentAuthenticated(false);
     localStorage.removeItem('stanbax_student_auth');
     localStorage.removeItem('stanbax_student_id');
@@ -3287,7 +3298,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const logoutParent = () => {
-    void remoteLogout();
     setIsParentAuthenticated(false);
     localStorage.removeItem('stanbax_parent_auth');
     localStorage.removeItem('stanbax_parent_id');
@@ -4030,7 +4040,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     { key: 'adminPassword', storageKey: 'stanbax_admin_password', label: 'Admin Password', get: () => adminPassword, set: setAdminPassword, isArray: false, rawString: true },
     { key: 'proprietressPassword', storageKey: 'stanbax_proprietress_password', label: 'Proprietress Password', get: () => proprietressPassword, set: setProprietressPassword, isArray: false, rawString: true },
     { key: 'adminSecurityQuestion', storageKey: 'stanbax_admin_security_q', label: 'Admin Security Question', get: () => adminSecurityQuestion, set: setAdminSecurityQuestion, isArray: false, rawString: true },
-    { key: 'adminSecurityAnswer', storageKey: 'stanbax_admin_security_a', label: 'Admin Security Answer', get: () => adminSecurityAnswer, set: setAdminSecurityAnswer, isArray: false, rawString: true }
+    { key: 'adminSecurityAnswer', storageKey: 'stanbax_admin_security_a', label: 'Admin Security Answer', get: () => adminSecurityAnswer, set: setAdminSecurityAnswer, isArray: false, rawString: true },
+    { key: 'schoolRepConfig', storageKey: 'stanbax_school_rep_config', label: 'School Representative Config', get: () => schoolRepConfig, set: setSchoolRepConfig, isArray: false },
+    { key: 'visitorConversations', storageKey: 'stanbax_visitor_conversations', label: 'Visitor Inquiries & Live Chat', get: () => visitorConversations, set: setVisitorConversations, isArray: true }
   ];
 
   const exportDatabaseSnapshot = (): string => {
@@ -5915,6 +5927,329 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  // 32. School Representative & Landing Page Visitor Inquiries
+  const [schoolRepConfig, setSchoolRepConfig] = useState<SchoolRepConfig>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_school_rep_config');
+      if (saved) {
+        return { ...DEFAULT_SCHOOL_REP_CONFIG, ...JSON.parse(saved) };
+      }
+    } catch {}
+    return DEFAULT_SCHOOL_REP_CONFIG;
+  });
+
+  const updateSchoolRepConfig = (updates: Partial<SchoolRepConfig>) => {
+    setSchoolRepConfig(prev => {
+      const updated = { ...prev, ...updates };
+      try {
+        localStorage.setItem('stanbax_school_rep_config', JSON.stringify(updated));
+        window.dispatchEvent(new Event('storage'));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const toggleRepAvailability = (available?: boolean) => {
+    setSchoolRepConfig(prev => {
+      const newAvail = available !== undefined ? available : !prev.isAvailable;
+      const updated = {
+        ...prev,
+        isAvailable: newAvail,
+        statusText: newAvail 
+          ? 'Online Now • Available for Live Consultation'
+          : 'Away on Campus Inspection • Calvin AI Virtual Rep Active'
+      };
+      try {
+        localStorage.setItem('stanbax_school_rep_config', JSON.stringify(updated));
+        window.dispatchEvent(new Event('storage'));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const [visitorConversations, setVisitorConversations] = useState<VisitorConversation[]>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_visitor_conversations');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return DEFAULT_VISITOR_CONVERSATIONS;
+  });
+
+  // Cross-tab synchronization for visitor inquiries & representative status
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'stanbax_visitor_conversations' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setVisitorConversations(parsed);
+          }
+        } catch {}
+      }
+      if (e.key === 'stanbax_school_rep_config' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && typeof parsed === 'object') {
+            setSchoolRepConfig(prev => ({ ...prev, ...parsed }));
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+    return () => window.removeEventListener('storage', handleStorageEvent);
+  }, []);
+
+  const sendVisitorMessage = async (
+    visitorId: string,
+    messageText: string,
+    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any }
+  ): Promise<VisitorChatMessage | null> => {
+    const text = messageText.trim();
+    if (!text) return null;
+
+    const userMsg: VisitorChatMessage = {
+      id: `vmsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      sender: 'visitor',
+      senderName: visitorInfo?.name || 'Visitor',
+      content: text,
+      timestamp: new Date().toISOString()
+    };
+
+    const now = new Date().toISOString();
+    const existingConv = visitorConversations.find(c => c.visitorId === visitorId);
+    const effectiveVisitorName = visitorInfo?.name || existingConv?.visitorName || `Prospective Parent #${Math.floor(1000 + Math.random() * 9000)}`;
+    const historyPayload = existingConv?.messages 
+      ? existingConv.messages.map((m: VisitorChatMessage) => ({ sender: m.sender, content: m.content })) 
+      : [];
+
+    setVisitorConversations(prev => {
+      const existingIdx = prev.findIndex(c => c.visitorId === visitorId);
+
+      if (existingIdx >= 0) {
+        const existing = prev[existingIdx];
+        const updatedMessages = [...existing.messages, userMsg];
+        const updated: VisitorConversation = {
+          ...existing,
+          visitorName: effectiveVisitorName,
+          visitorPhone: visitorInfo?.phone || existing.visitorPhone,
+          visitorEmail: visitorInfo?.email || existing.visitorEmail,
+          lastMessageAt: now,
+          unreadByAdmin: true,
+          status: 'waiting_rep',
+          messages: updatedMessages
+        };
+        const copy = [...prev];
+        copy[existingIdx] = updated;
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      } else {
+        const newConv: VisitorConversation = {
+          visitorId,
+          visitorName: effectiveVisitorName,
+          visitorPhone: visitorInfo?.phone,
+          visitorEmail: visitorInfo?.email,
+          visitorCategory: visitorInfo?.category || 'Prospective Parent',
+          createdAt: now,
+          lastMessageAt: now,
+          status: 'waiting_rep',
+          unreadByAdmin: true,
+          messages: [userMsg]
+        };
+        const copy = [newConv, ...prev];
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+    });
+
+    // If representative is not available (or offline), Calvin AI steps in as the virtual representative!
+    if (!schoolRepConfig.isAvailable) {
+      try {
+        const res = await fetch('/api/visitor-rep-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            visitorName: effectiveVisitorName,
+            repName: schoolRepConfig.repName,
+            repTitle: schoolRepConfig.repTitle,
+            repRole: schoolRepConfig.activeRole,
+            chatHistory: historyPayload
+          })
+        });
+
+        const data = await res.json();
+        const replyText = data?.reply || "Thank you for contacting Stanbax Schools Ibadan! Your inquiry has been received and our school representative will review and respond promptly.";
+
+        const aiMsg: VisitorChatMessage = {
+          id: `aimsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          sender: 'calvin_ai',
+          senderName: 'Calvin AI (Virtual Rep)',
+          senderTitle: `Assisting for ${schoolRepConfig.repName}`,
+          content: replyText,
+          timestamp: new Date().toISOString(),
+          isAiResponse: true
+        };
+
+        setVisitorConversations(prev => {
+          const idx = prev.findIndex(c => c.visitorId === visitorId);
+          if (idx >= 0) {
+            const existing = prev[idx];
+            const updated = {
+              ...existing,
+              lastMessageAt: new Date().toISOString(),
+              messages: [...existing.messages, aiMsg]
+            };
+            const copy = [...prev];
+            copy[idx] = updated;
+            try {
+              localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+              window.dispatchEvent(new Event('storage'));
+            } catch {}
+            return copy;
+          }
+          return prev;
+        });
+
+        return aiMsg;
+      } catch (err) {
+        console.warn('Calvin AI virtual rep fetch error:', err);
+      }
+    }
+
+    return null;
+  };
+
+  // Instant Calvin AI stand-in if representative is online but busy
+  const requestCalvinAiInstantReply = async (visitorId: string): Promise<VisitorChatMessage | null> => {
+    const existingConv = visitorConversations.find(c => c.visitorId === visitorId);
+    if (!existingConv || existingConv.messages.length === 0) return null;
+    const lastUserMsg = [...existingConv.messages].reverse().find(m => m.sender === 'visitor');
+    if (!lastUserMsg) return null;
+
+    const historyPayload = existingConv.messages.map(m => ({ sender: m.sender, content: m.content }));
+    try {
+      const res = await fetch('/api/visitor-rep-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: lastUserMsg.content,
+          visitorName: existingConv.visitorName,
+          repName: schoolRepConfig.repName,
+          repTitle: schoolRepConfig.repTitle,
+          repRole: schoolRepConfig.activeRole,
+          chatHistory: historyPayload
+        })
+      });
+
+      const data = await res.json();
+      const replyText = data?.reply || `Thank you for contacting Stanbax Schools! Your query has been noted and ${schoolRepConfig.repName} will reply shortly.`;
+
+      const aiMsg: VisitorChatMessage = {
+        id: `aimsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        sender: 'calvin_ai',
+        senderName: 'Calvin AI (Virtual Rep)',
+        senderTitle: `Assisting for ${schoolRepConfig.repName}`,
+        content: replyText,
+        timestamp: new Date().toISOString(),
+        isAiResponse: true
+      };
+
+      setVisitorConversations(prev => {
+        const idx = prev.findIndex(c => c.visitorId === visitorId);
+        if (idx >= 0) {
+          const existing = prev[idx];
+          const updated = {
+            ...existing,
+            lastMessageAt: new Date().toISOString(),
+            messages: [...existing.messages, aiMsg]
+          };
+          const copy = [...prev];
+          copy[idx] = updated;
+          try {
+            localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+            window.dispatchEvent(new Event('storage'));
+          } catch {}
+          return copy;
+        }
+        return prev;
+      });
+
+      return aiMsg;
+    } catch (err) {
+      console.warn('Error fetching Calvin AI instant reply:', err);
+      return null;
+    }
+  };
+
+  const replyAsRepresentative = (
+    visitorId: string,
+    replyContent: string,
+    repInfo?: { name?: string; title?: string }
+  ) => {
+    const text = replyContent.trim();
+    if (!text) return;
+
+    const repMsg: VisitorChatMessage = {
+      id: `repmsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      sender: 'representative',
+      senderName: repInfo?.name || schoolRepConfig.repName,
+      senderTitle: repInfo?.title || schoolRepConfig.repTitle,
+      senderAvatar: schoolRepConfig.repAvatar,
+      content: text,
+      timestamp: new Date().toISOString()
+    };
+
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const existing = prev[idx];
+        const updated = {
+          ...existing,
+          status: 'resolved' as const,
+          unreadByAdmin: false,
+          lastMessageAt: new Date().toISOString(),
+          messages: [...existing.messages, repMsg]
+        };
+        const copy = [...prev];
+        copy[idx] = updated;
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+  };
+
+  const markVisitorConversationRead = (visitorId: string) => {
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], unreadByAdmin: false };
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+  };
+
+  const getVisitorConversation = (visitorId: string) => {
+    return visitorConversations.find(c => c.visitorId === visitorId);
+  };
+
   // 15B. Dynamic Available Academic Sessions across current & archives
   const availableSessions = Array.from(new Set([
     assessmentConfig.activeSession,
@@ -6255,7 +6590,17 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         resetNewsArticlesToDefault,
         studentSubmissions,
         submitArticleForReview,
-        reviewStudentSubmission
+        reviewStudentSubmission,
+        // 32. School Representative & Landing Page Visitor Inquiries
+        schoolRepConfig,
+        updateSchoolRepConfig,
+        toggleRepAvailability,
+        visitorConversations,
+        sendVisitorMessage,
+        replyAsRepresentative,
+        requestCalvinAiInstantReply,
+        getVisitorConversation,
+        markVisitorConversationRead
       }}
     >
       {children}

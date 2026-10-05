@@ -26,7 +26,7 @@ export const Testimonials: React.FC = () => {
         {/* 4 Testimonials Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {effectiveTestimonials.map((t) => {
-            const avatarImg = t.imageUrl || t.avatar || (t.imageKey && images[t.imageKey]) || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80';
+            const avatarImg = (t.imageKey && images[t.imageKey]) || t.imageUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80';
             return (
               <div
                 key={t.id}
@@ -63,11 +63,11 @@ export const Testimonials: React.FC = () => {
                       {t.name}
                     </h4>
                     <p className="text-xs text-red-700 font-bold">
-                      {t.relation || t.relationship}
+                      {t.relation}
                     </p>
                     <p className="text-[11px] text-neutral-500 flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3 text-neutral-400" />
-                      {t.location || 'Ibadan, Oyo State'}
+                      {t.location}
                     </p>
                   </div>
                 </div>

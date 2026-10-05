@@ -58,7 +58,7 @@ export const KeyPillars: React.FC = () => {
                     {pillar.title}
                   </h3>
                   <p className="text-neutral-600 text-sm leading-relaxed">
-                    {pillar.desc || pillar.description}
+                    {pillar.desc}
                   </p>
                 </div>
 

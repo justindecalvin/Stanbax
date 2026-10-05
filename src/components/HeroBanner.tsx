@@ -74,55 +74,20 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <button
               type="button"
               onClick={onOpenAdmissions}
-              className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-red-900/30 transition-all hover:translate-x-0.5 active:scale-95 cursor-pointer"
+              className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-red-900/30 transition-all hover:translate-x-0.5 active:scale-95"
             >
               <GraduationCap className="w-4 h-4" />
-              <span>{slide.ctaText || 'Apply for Admission'}</span>
+              <span>Apply for Admission</span>
             </button>
             <button
               type="button"
               onClick={() => onNavigate('programs')}
-              className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-sm flex items-center gap-2 backdrop-blur-xs transition-colors cursor-pointer"
+              className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-sm flex items-center gap-2 backdrop-blur-xs transition-colors"
             >
-              <span>{slide.secondaryCtaText || 'Explore Programs'}</span>
+              <span>Explore Programs</span>
               <ArrowRight className="w-4 h-4 text-stone-300" />
             </button>
           </div>
-
-          {/* Slide navigation controls */}
-          {heroSlides && heroSlides.length > 1 && (
-            <div className="flex items-center gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setCurrentSlideIndex(prev => (prev - 1 + heroSlides.length) % heroSlides.length)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition cursor-pointer"
-                title="Previous Slide"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-1.5">
-                {heroSlides.map((s, idx) => (
-                  <button
-                    key={s.id || idx}
-                    type="button"
-                    onClick={() => setCurrentSlideIndex(idx)}
-                    className={`h-2 rounded-full transition-all cursor-pointer ${
-                      currentSlideIndex === idx ? 'w-6 bg-amber-400' : 'w-2 bg-white/30 hover:bg-white/50'
-                    }`}
-                    title={`Slide ${idx + 1}`}
-                  />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setCurrentSlideIndex(prev => (prev + 1) % heroSlides.length)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition cursor-pointer"
-                title="Next Slide"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
 
           {/* Highlights Row */}
           {heroHighlights && heroHighlights.length > 0 && (

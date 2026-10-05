@@ -47,9 +47,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ onOpenAdmissions }) 
               <Award className="w-6 h-6 text-white" />
               <div>
                 <div className="text-xl font-black leading-none">Est. {aboutContent.establishedYear || '2007'}</div>
-                <div className="text-[11px] font-bold text-amber-100 uppercase tracking-wider">
-                  {aboutContent.heritageText || 'Heritage of Impact'}
-                </div>
+                <div className="text-[11px] font-bold text-amber-100 uppercase tracking-wider">Heritage of Impact</div>
               </div>
             </div>
           </div>

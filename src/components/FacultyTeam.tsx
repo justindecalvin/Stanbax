@@ -3,11 +3,7 @@ import { Users, Award, GraduationCap, PlusCircle, Settings, ArrowRight, Calendar
 import { useSchool } from '../context/SchoolContext';
 
 export const FacultyTeam: React.FC = () => {
-  const { images, facultyList, isAdminAuthenticated, setActiveSection, proprietressProfile, schoolInfo } = useSchool();
-
-  const facultyBadge = schoolInfo.facultyHeader?.badge || 'Academic Leadership';
-  const facultyTitle = schoolInfo.facultyHeader?.title || 'Meet Our Faculty & Administration';
-  const facultySubtitle = schoolInfo.facultyHeader?.subtitle || 'Dedicated educators, mentors, and administrators committed to cultivating intellect, discipline, and moral distinction at Stanbax Schools Ibadan.';
+  const { images, facultyList, isAdminAuthenticated, setActiveSection, proprietressProfile } = useSchool();
 
   return (
     <section id="faculty" className="py-20 bg-[#FDFBF7] border-b border-[#EAE2CE] font-['Nunito',sans-serif]">
@@ -68,13 +64,13 @@ export const FacultyTeam: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-100 text-neutral-900 border border-amber-300 text-xs font-black uppercase tracking-wider mb-3">
             <Users className="w-3.5 h-3.5 text-red-600" />
-            <span>{facultyBadge}</span>
+            <span>Academic Leadership</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-neutral-900 tracking-tight">
-            {facultyTitle}
+            Meet Our Faculty & Administration
           </h2>
           <p className="text-neutral-600 text-sm sm:text-base mt-3">
-            {facultySubtitle}
+            Dedicated educators, mentors, and administrators committed to cultivating intellect, discipline, and moral distinction at Stanbax Schools Ibadan.
           </p>
 
           {isAdminAuthenticated && (

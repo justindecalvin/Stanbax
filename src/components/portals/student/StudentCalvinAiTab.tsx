@@ -315,9 +315,9 @@ export const StudentCalvinAiTab: React.FC<StudentCalvinAiTabProps> = ({ student 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Student active Calvin access - always available so student is never blocked
-  const access: any = student.calvinAiAccess || { active: true, tier: 'premium' as const };
-  const isAccessValid = true;
+  // Check student active Calvin access
+  const access = student.calvinAiAccess;
+  const isAccessValid = access?.active && (!access.expiresAt || new Date(access.expiresAt) > new Date());
   const isPremium = access?.tier === 'premium';
 
   // Calculate days remaining
@@ -474,77 +474,45 @@ In WAEC WASSCE and Cambridge IGCSE, always write "Sunlight" above the arrow and 
     }
 
     // 3. Mathematics / Equations / Algebra
-    if (qLower.includes('quadratic') || qLower.includes('ax²') || qLower.includes('b² - 4ac') || qLower.includes('discriminant')) {
-      return `Hello ${firstName}! Here is the mathematical procedure for ${classLevel}:
+    if (qLower.includes('quadratic') || qLower.includes('solve') || qLower.includes('equation') || qLower.includes('math') || qLower.includes('formula')) {
+      if (isPrimary) {
+        return `Hello ${firstName}! Here is your Primary School math guide for ${classLevel}:
+
+Step-by-Step Math Guide
+
+1. Read the Problem Carefully:
+Look at the numbers you are given and decide whether the question requires addition, subtraction, multiplication, or division.
+
+2. Work Out the Solution:
+• Write down what you are given first.
+• Break big numbers into smaller, manageable chunks.
+• Check your arithmetic slowly to avoid small carrying or borrowing mistakes.
+
+3. Verify Your Answer:
+Check your work by working backwards!
+
+Send me your exact math question and we can solve it together line by line!`;
+      } else {
+        return `Hello ${firstName}! Here is the mathematical procedure for ${classLevel}:
 
 Standard Quadratic Equation Solution Methodology
 
 1. General Algebraic Form:
+Any second-degree polynomial equation takes the form:
 ax² + bx + c = 0  (where a ≠ 0)
 
 2. The Quadratic Formula:
 x = (-b ± √(b² - 4ac)) / (2a)
 
-Worked Example: Solve 2x² - 5x + 2 = 0
-• Step 1: Identify coefficients: a = 2, b = -5, c = 2.
-• Step 2: Evaluate the discriminant:
-  Δ = b² - 4ac = (-5)² - 4(2)(2) = 25 - 16 = 9.
-• Step 3: Substitute into the quadratic formula:
-  x = (-(-5) ± √9) / (2 × 2) = (5 ± 3) / 4
-• First Root: x₁ = (5 + 3) / 4 = 8 / 4 = 2
-• Second Root: x₂ = (5 - 3) / 4 = 2 / 4 = 1/2 (or 0.5)
+Worked Methodological Steps:
+• Step 1: Rearrange the equation so that all terms are on one side, equaling zero.
+• Step 2: Extract coefficients: identify the exact numerical values of a, b, and c (paying close attention to negative signs).
+• Step 3: Evaluate the discriminant: Δ = b² - 4ac.
+• Step 4: Substitute into the quadratic formula and compute both roots using (+) and (-).
 
 WAEC & Cambridge Marking Guide:
 Always write down the general formula first before substituting numbers. Showing the substitution line earns 2 method marks before the final roots!`;
-    }
-
-    if (qLower.includes('calculus') || qLower.includes('differentiat') || qLower.includes('derivative') || qLower.includes('dy/dx') || qLower.includes('integrat')) {
-      return `Hello ${firstName}! Here is your guide to Calculus for ${classLevel}:
-
-Calculus: Differentiation & Integration
-
-1. The Power Rule for Differentiation:
-If y = axⁿ, then dy/dx = n × axⁿ⁻¹
-• Example: If y = 3x⁴, then dy/dx = 4 × 3x³ = 12x³
-• Rate of Change: Velocity v = ds/dt; Acceleration a = dv/dt
-
-2. Finding Turning Points (Stationary Points):
-Set dy/dx = 0 and solve for x. Use the second derivative d²y/dx² to classify:
-• If d²y/dx² > 0: Minimum turning point
-• If d²y/dx² < 0: Maximum turning point
-
-3. Integration Rule:
-∫ xⁿ dx = (xⁿ⁺¹ / (n + 1)) + C  (for n ≠ -1)`;
-    }
-
-    if (qLower.includes('newton') || qLower.includes('force') || qLower.includes('motion') || qLower.includes('f = ma')) {
-      return `Hello ${firstName}! Here are Newton's Laws of Motion:
-
-Newton's Three Laws of Motion & Governing Equations
-
-1. First Law (Law of Inertia): An object remains at rest or in uniform motion in a straight line unless acted upon by a net external force.
-2. Second Law: Force = Mass × Acceleration (F = ma). Rate of change of momentum is proportional to applied force.
-3. Third Law: To every action, there is an equal and opposite reaction (F_AB = -F_BA).
-
-Equations of Linear Motion:
-• v = u + at
-• s = ut + (1/2)at²
-• v² = u² + 2as`;
-    }
-
-    if (qLower.includes('ohm') || qLower.includes('circuit') || qLower.includes('resistan') || qLower.includes('current')) {
-      return `Hello ${firstName}! Here is Ohm's Law and Circuit Analysis:
-
-Ohm's Law & Electric Circuits
-
-1. Statement of Ohm's Law:
-The current (I) flowing through a metallic conductor is directly proportional to the potential difference (V) across its ends, provided temperature remains constant.
-• Formula: V = I × R
-
-2. Resistor Combinations:
-• Series: R_total = R₁ + R₂ + R₃ (Current is constant)
-• Parallel: 1/R_total = 1/R₁ + 1/R₂ + 1/R₃ (Voltage is constant)
-• Electrical Power: P = IV = I²R = V² / R (Watts, W)`;
+      }
     }
 
     // 4. Default Level-Adapted Academic Response
@@ -552,6 +520,7 @@ The current (I) flowing through a metallic conductor is directly proportional to
       return `Hello little star, ${firstName}! ⭐
 
 I love how curious you are! In our ${classLevel} class at Stanbax Schools:
+
 • Everything in our world has a special name and purpose!
 • When we learn something new, we listen carefully and practice happily.
 
@@ -564,11 +533,11 @@ You are doing a wonderful job. Keep smiling and asking great questions! 🌟`;
 Topic: "${query}"
 
 1. What this means in simple words:
-When we take this concept step by step, it becomes easy to understand!
+Think of this topic like something you see around you at school or at home. When we take it one step at a time, it becomes easy to understand!
 
 2. 3 Key Things to Remember:
 • Step 1: Read your textbook definition carefully and say it in your own words.
-• Step 2: Write down 2 examples from everyday life (at home or in school).
+• Step 2: Write down 2 examples from everyday Nigerian life (like in the market, home, or classroom).
 • Step 3: Practice answering a textbook review question to test yourself.
 
 Superstar Study Tip:
@@ -589,7 +558,9 @@ In Junior Secondary, mastering this topic requires understanding the core NERDC 
 • Include relatable everyday examples to demonstrate conceptual understanding.
 
 3. Junior WAEC / BECE Examination Tip:
-Always present your answers neatly with clear headings and bullet points. Showing your method guarantees you score maximum points!`;
+Always present your answers neatly with clear headings and bullet points. Showing your method guarantees you score maximum points!
+
+Would you like to solve a specific practice question on this topic together?`;
     }
 
     // Senior Secondary (SSS 1 - 3)
@@ -615,6 +586,11 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
   const handleSendMessage = async (customPrompt?: string) => {
     const query = (customPrompt || inputText).trim();
     if (!query || isLoading) return;
+
+    if (!isAccessValid) {
+      setTokenError('Your Calvin AI access token is expired or inactive. Please redeem a token below.');
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}-user`,
@@ -656,7 +632,7 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      const timeoutId = setTimeout(() => controller.abort(), 35000);
 
       const res = await fetch('/api/calvin-chat', {
         method: 'POST',
@@ -669,8 +645,7 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
           message: query,
           studentName: student.name,
           classLevel: student.grade || 'Senior Secondary',
-          role: 'student',
-          tier: isPremium ? 'premium' : 'regular',
+          tier: access?.tier || 'regular',
           subject: activeScheme?.subjectName || (selectedSubject !== 'All Subjects' ? selectedSubject : ''),
           term: activeScheme?.term || '2nd Term',
           schemeOfWork: activeScheme || null,

@@ -42,11 +42,11 @@ export const ContactSection: React.FC = () => {
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-              {schoolInfo.contactHeading || 'Get in Touch with Stanbax Schools'}
+              Get in Touch with Stanbax Schools
             </h2>
 
             <p className="text-stone-600 text-sm leading-relaxed">
-              {schoolInfo.contactSubtitle || 'We welcome prospective parents, scholars, and community members. Contact our admissions desk or visit our main school premises in Ibadan.'}
+              We welcome prospective parents, scholars, and community members. Contact our admissions desk or visit our main school premises in Ibadan.
             </p>
 
             <div className="space-y-4 pt-2">
@@ -65,12 +65,8 @@ export const ContactSection: React.FC = () => {
                   <Phone className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-stone-900">Telephone Lines & Hotline</div>
-                  <div className="text-xs text-stone-600 mt-0.5">
-                    {schoolInfo.phone}
-                    {schoolInfo.admissionsPhone && schoolInfo.admissionsPhone !== schoolInfo.phone && ` • Admissions: ${schoolInfo.admissionsPhone}`}
-                    {schoolInfo.whatsapp && ` • WhatsApp: ${schoolInfo.whatsapp}`}
-                  </div>
+                  <div className="text-xs font-bold text-stone-900">Telephone Lines</div>
+                  <div className="text-xs text-stone-600 mt-0.5">{schoolInfo.phone} • {schoolInfo.whatsapp}</div>
                 </div>
               </div>
 
@@ -90,7 +86,7 @@ export const ContactSection: React.FC = () => {
                 </div>
                 <div>
                   <div className="text-xs font-bold text-stone-900">School Office Hours</div>
-                  <div className="text-xs text-stone-600 mt-0.5">{schoolInfo.contactOfficeHours || 'Monday – Friday: 07:30 AM – 04:30 PM'}</div>
+                  <div className="text-xs text-stone-600 mt-0.5">Monday – Friday: 07:30 AM – 04:30 PM</div>
                 </div>
               </div>
             </div>

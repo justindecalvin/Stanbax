@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { X, CheckCircle, GraduationCap } from './RealIcons';
+import { AdmissionForm } from '../types';
 import { useSchool } from '../context/SchoolContext';
-import { X, CheckCircle2, Award, Calendar, FileText, ChevronRight } from 'lucide-react';
 
 interface AdmissionsModalProps {
   isOpen: boolean;
@@ -8,138 +9,262 @@ interface AdmissionsModalProps {
 }
 
 export const AdmissionsModal: React.FC<AdmissionsModalProps> = ({ isOpen, onClose }) => {
-  const { classes, schoolInfo } = useSchool();
-  const [candidateName, setCandidateName] = useState('');
-  const [selectedClass, setSelectedClass] = useState(classes[0]?.name || 'Creche');
-  const [parentName, setParentName] = useState('');
-  const [parentPhone, setParentPhone] = useState('');
-  const [parentEmail, setParentEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [appNumber, setAppNumber] = useState('');
+  const { submitApplication, entranceExamSettings } = useSchool();
+  const [formData, setFormData] = useState<AdmissionForm>({
+    parentName: '',
+    email: '',
+    phone: '',
+    studentName: '',
+    studentDob: '',
+    gradeLevel: 'Primary 1',
+    residentialAddress: '',
+    notes: ''
+  });
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [generatedRef, setGeneratedRef] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const appNum = `STB-ADM-${Date.now().toString().slice(-5)}`;
-    setAppNumber(appNum);
-    setSubmitted(true);
+    if (!formData.parentName || !formData.studentName || !formData.phone) return;
+    
+    const newRef = submitApplication({
+      parentName: formData.parentName,
+      email: formData.email,
+      phone: formData.phone,
+      studentName: formData.studentName,
+      studentDob: formData.studentDob || '2015-05-12',
+      gradeLevel: formData.gradeLevel,
+      residentialAddress: formData.residentialAddress,
+      notes: formData.notes
+    });
+
+    setGeneratedRef(newRef);
+    setIsSuccess(true);
+  };
+
+  const resetAndClose = () => {
+    setIsSuccess(false);
+    setFormData({
+      parentName: '',
+      email: '',
+      phone: '',
+      studentName: '',
+      studentDob: '',
+      gradeLevel: 'Primary 1',
+      residentialAddress: '',
+      notes: ''
+    });
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-950 via-stone-900 to-indigo-950 text-white p-5 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500 text-stone-950">
-              {schoolInfo.activeSession || '2026/2027'} Admissions
-            </span>
-            <h3 className="font-extrabold text-base text-white mt-1">Stanbax Schools Online Application</h3>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs overflow-y-auto animate-fade-in font-['Nunito',sans-serif]">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#EAE2CE] overflow-hidden my-8">
+        {/* Header with Black, Red & Yellow Uniform Theme */}
+        <div className="bg-gradient-to-r from-[#111827] via-neutral-900 to-[#450A0A] text-white p-6 relative">
           <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 hover:text-white transition"
+            onClick={resetAndClose}
+            className="absolute top-5 right-5 p-1.5 rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
+
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-400 text-neutral-950 flex items-center justify-center font-black shadow-md">
+              <GraduationCap className="w-7 h-7" />
+            </div>
+            <div>
+              <span className="text-amber-300 text-xs font-black uppercase tracking-wider">
+                2025/2026 Academic Session
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Admissions Application Portal
+              </h2>
+              <p className="text-xs text-[#E5DEC9]">
+                Stanbax Schools Ibadan • Creche, Primary & Secondary
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="p-6">
-          {submitted ? (
-            <div className="text-center py-6 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="w-8 h-8" />
+        {/* Content */}
+        <div className="p-6 sm:p-8">
+          {isSuccess ? (
+            <div className="text-center py-8 space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                <CheckCircle className="w-10 h-10" />
               </div>
-              <h4 className="text-xl font-black text-stone-900">Application Lodged Successfully!</h4>
-              <p className="text-xs text-stone-600 max-w-sm mx-auto">
-                Thank you for applying to Stanbax Schools Ibadan. Your application reference number is:
+              <h3 className="text-2xl font-black text-neutral-900">
+                Application Initiated!
+              </h3>
+              <p className="text-neutral-600 text-sm max-w-md mx-auto leading-relaxed">
+                Thank you for applying to <strong className="text-red-700">Stanbax Schools Ibadan</strong> for <strong>{formData.studentName}</strong> ({formData.gradeLevel}).
               </p>
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 font-mono font-black text-lg">
-                {appNumber}
+              <div className="p-4 rounded-2xl bg-[#FAF7EE] border border-[#EAE2CE] text-xs text-neutral-900 max-w-md mx-auto text-left space-y-1.5 font-medium">
+                <div><strong>Application Reference:</strong> <span className="font-mono text-red-700 font-black">{generatedRef}</span></div>
+                <div><strong>Entrance Exam Screening:</strong> {entranceExamSettings.examDate} ({entranceExamSettings.examTime})</div>
+                <div><strong>Parent Contact:</strong> {formData.phone}</div>
+                <div><strong>Screening Venue:</strong> {entranceExamSettings.venue}</div>
+                {entranceExamSettings.duration && (
+                  <div><strong>Exam Format & Duration:</strong> {entranceExamSettings.duration}</div>
+                )}
               </div>
-              <p className="text-xs text-stone-500">
-                Our Admissions Office will contact you on <strong>{parentPhone}</strong> regarding the entrance assessment date and campus inspection.
+              <p className="text-xs text-neutral-500">
+                You can track this application at any time using your reference code via the <strong>Track Admission</strong> button in the top menu.
               </p>
               <button
-                type="button"
-                onClick={onClose}
-                className="w-full py-3 rounded-2xl bg-stone-900 text-white font-bold text-xs"
+                onClick={resetAndClose}
+                className="px-6 py-3 rounded-xl bg-neutral-900 hover:bg-black text-amber-300 font-bold text-xs cursor-pointer shadow-md"
               >
-                Close Window
+                Done
               </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Scholar Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={candidateName}
-                  onChange={(e) => setCandidateName(e.target.value)}
-                  placeholder="e.g. David Oluwaseun Adeleke"
-                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-950 flex items-center gap-2">
+                <span className="font-black text-red-700">Notice:</span>
+                <span>Early registration discounts and entrance scholarship assessments are ongoing.</span>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Applying For Grade / Level</label>
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600"
+              {/* Parent Info */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500 border-b border-[#EAE2CE] pb-1">
+                  1. Parent / Guardian Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                      Parent / Guardian Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Chief / Mrs. T. Adeleke"
+                      value={formData.parentName}
+                      onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-red-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                      Phone Number (WhatsApp Preferred) *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+234 803 000 0000"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-red-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="parent@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-red-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                      Residential Area in Ibadan *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Oluyole Estate, Bodija, Challenge"
+                      value={formData.residentialAddress}
+                      onChange={(e) => setFormData({ ...formData, residentialAddress: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-red-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Student Info */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500 border-b border-[#EAE2CE] pb-1">
+                  2. Prospective Scholar Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                      Child's Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="First and Surname"
+                      value={formData.studentName}
+                      onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-red-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                      Applying Grade Level *
+                    </label>
+                    <select
+                      value={formData.gradeLevel}
+                      onChange={(e) => setFormData({ ...formData, gradeLevel: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-bold focus:ring-2 focus:ring-red-600 focus:outline-none bg-white"
+                    >
+                      <option value="Creche">Creche (1-2 yrs)</option>
+                      <option value="Nursery 1">Nursery 1</option>
+                      <option value="Nursery 2">Nursery 2</option>
+                      <option value="Primary 1">Primary 1</option>
+                      <option value="Primary 2-5">Primary 2 - 5</option>
+                      <option value="Primary 6">Primary 6</option>
+                      <option value="JSS 1">JSS 1 (Junior High)</option>
+                      <option value="JSS 2-3">JSS 2 - 3</option>
+                      <option value="SSS 1 (Science)">SSS 1 (Science)</option>
+                      <option value="SSS 1 (Arts/Commercial)">SSS 1 (Arts/Commercial)</option>
+                      <option value="SSS 2-3 Transfer">SSS 2 - 3 Transfer</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                    Special Academic Interests or Medical Notes (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Interested in robotics club, advanced mathematics, literary & debating society..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-[#EAE2CE] text-xs sm:text-sm font-medium focus:ring-2 focus:ring-red-600 focus:outline-none resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[#EAE2CE] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={resetAndClose}
+                  className="px-4 py-2.5 rounded-xl text-neutral-600 hover:bg-[#FAF7EE] text-xs font-bold transition cursor-pointer"
                 >
-                  {classes.map(c => (
-                    <option key={c.id} value={c.name}>{c.name} ({c.category})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Parent / Guardian Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={parentName}
-                    onChange={(e) => setParentName(e.target.value)}
-                    placeholder="e.g. Dr. & Mrs. Adeleke"
-                    className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">WhatsApp / Phone Number</label>
-                  <input
-                    type="tel"
-                    required
-                    value={parentPhone}
-                    onChange={(e) => setParentPhone(e.target.value)}
-                    placeholder="+234 803 123 4567"
-                    className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={parentEmail}
-                  onChange={(e) => setParentEmail(e.target.value)}
-                  placeholder="parent@domain.com"
-                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
-
-              <div className="pt-2">
+                  Cancel
+                </button>
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md transition flex items-center justify-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-amber-300 text-xs font-bold shadow-md transition cursor-pointer"
                 >
-                  <span>Submit Entrance Application</span>
-                  <ChevronRight className="w-4 h-4" />
+                  Submit Enrollment Application
                 </button>
               </div>
             </form>

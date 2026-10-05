@@ -1,18 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const rawUrl = (import.meta.env.VITE_SUPABASE_URL || 'https://dznuxdinqxjcgwgpqvna.supabase.co') as string | undefined;
-const SUPABASE_URL = rawUrl ? rawUrl.trim().replace(/\/+$/, '') : undefined;
-const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_l7ga_by2ObUIQSYLqmY3yg_1fjQjCF2') as string | undefined;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 const SESSION_KEY = 'stanbax_db_session';
 let sessionToken: string | null = null;
-try {
-  if (typeof window !== 'undefined') {
-    sessionToken = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-  }
-} catch {
-  // ignore in non-browser or storage restricted context
-}
+try { sessionToken = sessionStorage.getItem(SESSION_KEY); } catch { /* ignore */ }
 
 const authedFetch: typeof fetch = (input, init) => {
   if (!sessionToken) return fetch(input, init);
@@ -21,7 +14,7 @@ const authedFetch: typeof fetch = (input, init) => {
   return fetch(input, { ...init, headers });
 };
 
-// Initialize the Supabase client using environment variables
+// Client instantiated strictly with SUPABASE_URL and SUPABASE_ANON_KEY (Zero-Trust)
 export const supabase: SupabaseClient | null =
   SUPABASE_URL && SUPABASE_ANON_KEY
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -35,19 +28,12 @@ export const isRemoteEnabled = (): boolean => supabase !== null;
 export const setDbSession = (token: string | null): void => {
   sessionToken = token;
   try {
-    if (typeof window !== 'undefined') {
-      if (token) {
-        sessionStorage.setItem(SESSION_KEY, token);
-        localStorage.setItem(SESSION_KEY, token);
-      } else {
-        sessionStorage.removeItem(SESSION_KEY);
-        localStorage.removeItem(SESSION_KEY);
-      }
-    }
-  } catch {
-    // ignore
-  }
+    if (token) sessionStorage.setItem(SESSION_KEY, token);
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch { /* ignore */ }
 };
+
+export const getDbSession = (): string | null => sessionToken;
 
 export interface VerifyLoginResult {
   ok: boolean;
@@ -63,80 +49,83 @@ export const remoteVerifyLogin = async (
   password: string
 ): Promise<VerifyLoginResult> => {
   if (!supabase) return { ok: false, unreachable: true };
-  
-  // Timeout protection: 8 seconds maximum so login never hangs indefinitely
-  const timeoutPromise = new Promise<VerifyLoginResult>((resolve) => {
-    setTimeout(() => {
-      resolve({ ok: false, unreachable: true, message: 'Remote connection timed out. Falling back to local authentication.' });
-    }, 8000);
-  });
-
-  const requestPromise = (async (): Promise<VerifyLoginResult> => {
-    try {
-      const { data, error } = await supabase.rpc('verify_login', {
-        p_identifier: identifier,
-        p_password: password,
-      });
-      if (error) return { ok: false, unreachable: true, message: error.message };
-      const d = data as Record<string, unknown> | null;
-      if (!d || d.ok !== true) {
-        return { ok: false, message: (d?.message as string) || 'Invalid credentials.' };
-      }
-      return {
-        ok: true,
-        token: d.token as string,
-        role: d.role as string,
-        refId: d.ref_id as string,
-      };
-    } catch {
-      return { ok: false, unreachable: true };
+  try {
+    const { data, error } = await supabase.rpc('verify_login', {
+      p_identifier: identifier,
+      p_password: password,
+    });
+    if (error) {
+      console.warn('[Supabase Auth] Login verification rejected:', error.message);
+      return { ok: false, unreachable: true, message: error.message };
     }
-  })();
-
-  return Promise.race([requestPromise, timeoutPromise]);
+    const d = data as Record<string, unknown> | null;
+    if (!d || d.ok !== true) {
+      return { ok: false, message: (d?.message as string) || 'Invalid credentials.' };
+    }
+    return {
+      ok: true,
+      token: d.token as string,
+      role: d.role as string,
+      refId: d.ref_id as string,
+    };
+  } catch (err) {
+    console.warn('[Supabase Auth] Remote verification unreachable:', err);
+    return { ok: false, unreachable: true };
+  }
 };
 
+// Verify administrative authority server-side using SECURITY DEFINER RPC
+export const checkRemoteAdminStatus = async (): Promise<boolean> => {
+  if (!supabase || !sessionToken) return false;
+  try {
+    const { data, error } = await supabase.rpc('is_admin_session');
+    if (error || !data) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+};
+
+// After a remote-verified login, hydrate (now including private collections
+// unlocked by the session token) then reload so every mounted state picks up
+// the shared data. The portal section is stashed so App lands back in it.
 export const completeRemoteLogin = async (token: string, targetSection: string): Promise<never> => {
   setDbSession(token);
-  try {
-    sessionStorage.setItem('stanbax_resume_section', targetSection);
-    localStorage.setItem('stanbax_resume_section', targetSection);
-  } catch {
-    // ignore
-  }
+  try { sessionStorage.setItem('stanbax_resume_section', targetSection); } catch { /* ignore */ }
   await hydrateFromSupabase();
   window.location.reload();
+  // unreachable in a real browser, but satisfies typing in tests
   return new Promise<never>(() => {});
 };
 
 export const remoteLogout = async (): Promise<void> => {
-  if (!supabase || !sessionToken) {
-    setDbSession(null);
-    return;
-  }
+  if (!supabase || !sessionToken) return;
   try {
     await supabase.rpc('logout_session', { p_token: sessionToken });
-  } catch {
-    // ignore
-  } finally {
-    setDbSession(null);
-  }
+  } catch { /* ignore */ }
+  setDbSession(null);
 };
 
 export const remoteChangePassword = async (
   identifier: string,
   oldPassword: string | null,
   newPassword: string
-): Promise<void> => {
-  if (!supabase || !sessionToken) return;
+): Promise<{ ok: boolean; message?: string }> => {
+  if (!supabase || !sessionToken) return { ok: false, message: 'Supabase offline or no session.' };
   try {
-    await supabase.rpc('change_password', {
+    const { data, error } = await supabase.rpc('change_password', {
       p_identifier: identifier,
       p_old_password: oldPassword,
       p_new_password: newPassword,
     });
-  } catch {
-    // ignore
+    if (error) {
+      console.warn('[Supabase Security] Password change rejected:', error.message);
+      return { ok: false, message: error.message };
+    }
+    const d = data as { ok?: boolean; message?: string } | null;
+    return { ok: d?.ok === true, message: d?.message };
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Password update failed.' };
   }
 };
 
@@ -146,51 +135,70 @@ export const remoteCreateCredential = async (
   role: string,
   refId: string,
   aliases: string[] = []
-): Promise<void> => {
-  if (!supabase || !sessionToken) return;
+): Promise<{ ok: boolean; message?: string }> => {
+  if (!supabase || !sessionToken) return { ok: false, message: 'Supabase offline or no session.' };
   try {
-    await supabase.rpc('create_credential', {
+    const { data, error } = await supabase.rpc('create_credential', {
       p_identifier: identifier,
       p_password: password,
       p_role: role,
       p_ref_id: refId,
       p_aliases: aliases,
     });
-  } catch {
-    // ignore
+    if (error) {
+      console.warn('[Supabase Security] Credential creation unauthorized:', error.message);
+      return { ok: false, message: error.message };
+    }
+    const d = data as { ok?: boolean; message?: string } | null;
+    return { ok: d?.ok === true, message: d?.message };
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Credential provisioning failed.' };
   }
 };
 
-// Write-through database synchronization
+// ---------------------------------------------------------------------------
+// Write-through: every localStorage.setItem('stanbax_*', ...) also queues a
+// remote upsert into the school_state KV table (debounced, best-effort).
+// ---------------------------------------------------------------------------
+
 const pendingWrites = new Map<string, string | null>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let suppressRemote = false;
 
 const flushWrites = async () => {
   flushTimer = null;
-  if (!supabase || !sessionToken) {
-    pendingWrites.clear();
-    return;
-  }
+  if (!supabase || !sessionToken) { pendingWrites.clear(); return; }
   const batch = [...pendingWrites.entries()];
   pendingWrites.clear();
   const upserts = batch
     .filter(([, v]) => v !== null)
     .map(([key, v]) => ({ key, data: JSON.parse(v as string) }));
   const deletes = batch.filter(([, v]) => v === null).map(([k]) => k);
+  
   try {
-    if (upserts.length) await supabase.rpc('put_states', { p_items: upserts });
-    if (deletes.length) await supabase.rpc('delete_states', { p_keys: deletes });
-  } catch {
-    // local copy already saved
+    if (upserts.length) {
+      const { error } = await supabase.rpc('put_states', { p_items: upserts });
+      if (error) {
+        console.warn('[Supabase Sync] State write restricted or unauthorized:', error.message);
+        if (error.message?.includes('Not signed in')) {
+          setDbSession(null);
+        }
+      }
+    }
+    if (deletes.length) {
+      const { error } = await supabase.rpc('delete_states', { p_keys: deletes });
+      if (error) {
+        console.warn('[Supabase Sync] State delete restricted:', error.message);
+      }
+    }
+  } catch (err) {
+    console.warn('[Supabase Sync] State flush handled gracefully:', err);
   }
 };
 
 const scheduleFlush = () => {
   if (flushTimer) clearTimeout(flushTimer);
-  flushTimer = setTimeout(() => {
-    void flushWrites();
-  }, 400);
+  flushTimer = setTimeout(() => { void flushWrites(); }, 400);
 };
 
 export const queueRemoteWrite = (key: string, serialized: string | null): void => {
@@ -215,13 +223,25 @@ export const installLocalStorageSync = (): void => {
   };
 };
 
+// ---------------------------------------------------------------------------
+// Hydration: pull all readable rows into localStorage before React renders,
+// so every existing useState(localStorage.getItem(...)) initializer picks up
+// the shared remote state. Public rows are readable without a session;
+// private rows unlock after login.
+// ---------------------------------------------------------------------------
+
 export const hydrateFromSupabase = async (): Promise<void> => {
   if (!supabase) return;
   try {
     const { data, error } = await supabase
       .from('school_state')
       .select('key, data');
-    if (error || !data) return;
+    if (error) {
+      console.warn('[Supabase Hydrate] Read restricted or unavailable:', error.message);
+      return;
+    }
+    if (!data) return;
+
     const remoteKeys = new Set<string>();
     suppressRemote = true;
     try {
@@ -240,15 +260,17 @@ export const hydrateFromSupabase = async (): Promise<void> => {
     } finally {
       suppressRemote = false;
     }
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('stanbax_') && !remoteKeys.has(k)) {
-        queueRemoteWrite(k, localStorage.getItem(k));
+
+    // Bootstrap local seeds to remote if missing and user has valid session
+    if (sessionToken) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('stanbax_') && !remoteKeys.has(k)) {
+          queueRemoteWrite(k, localStorage.getItem(k));
+        }
       }
     }
-  } catch {
-    // offline -> local seeds remain
+  } catch (err) {
+    console.warn('[Supabase Hydrate] Fallback to local cache:', err);
   }
 };
-
-export default supabase;

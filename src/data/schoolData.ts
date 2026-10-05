@@ -25,8 +25,6 @@ import {
   TestimonialsSectionContent, 
   AcademicProgram, 
   Testimonial, 
-  WebsiteTheme,
-  ThemeConfig,
   BusRoute, 
   MealMenuItem, 
   Club, 
@@ -42,128 +40,44 @@ import {
   FeePaymentRecord,
   LibraryBookItem,
   ChatChannel,
-  SchoolChatMessage
+  SchoolChatMessage,
+  SchoolRepConfig,
+  VisitorConversation
 } from '../types';
 
 export const DEFAULT_IMAGES: AppImages = {
   crest: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=400&auto=format&fit=crop&q=80',
   hero: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=1200&auto=format&fit=crop&q=80',
   founders: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&auto=format&fit=crop&q=80',
-  earlyYears: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
-  artClass: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&auto=format&fit=crop&q=80',
+  earlyYears: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&auto=format&fit=crop&q=80',
+  artClass: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80',
   faculty: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&auto=format&fit=crop&q=80',
   sports: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&fit=crop&q=80',
-  soccer: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&auto=format&fit=crop&q=80',
+  soccer: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=800&auto=format&fit=crop&q=80',
   cultural: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop&q=80'
 };
 
 export const SCHOOL_INFO: SchoolInfo = {
   name: 'Stanbax Schools',
   motto: 'Excellence, Character & Global Leadership',
-  address: 'Beside Ikolaba High School, No. 9 Ojo Ikolaba Road',
+  address: 'Plot 12, Stanbax Boulevard, Ring Road',
   city: 'Ibadan',
   state: 'Oyo State',
   country: 'Nigeria',
-  location: 'Ikolaba, Ibadan, Oyo State',
   phone: '+234 803 123 4567',
   email: 'info@stanbaxschools.edu.ng',
   whatsapp: '+2348031234567',
-  admissionsPhone: '+234 803 123 4567',
   activeSession: '2026/2027 Academic Session',
   activeTerm: '1st Term (Michaelmas Term)',
   resumptionDate: '2026-09-15',
   vacationDate: '2026-12-18',
-  contactOfficeHours: 'Monday – Friday: 07:30 AM – 04:30 PM',
-  contactHeading: 'Get in Touch with Stanbax Schools',
-  contactSubtitle: 'We welcome prospective parents, scholars, and community members. Contact our admissions desk or visit our main school premises in Ibadan.',
-  footerBio: 'Dedicated to academic rigour, high moral character, and innovative technology literacy. Accredited British-Nigerian curriculum from Early Years to Senior Secondary in Ibadan.',
-  footerCopyright: 'Stanbax Schools. All rights reserved. Authorized academic access only.',
-  footerAccreditation: 'Accredited by Oyo State Ministry of Education & British Council Partner',
-  programsHeader: {
-    badge: 'Curriculum & Academics',
-    title: 'Academic Pathways at Stanbax Schools',
-    subtitle: 'Structured for all age tiers from early childhood through college graduation, integrating national benchmarks with international enrichment.'
-  },
-  studentLifeHeader: {
-    badge: 'School Life & Holistic Development',
-    title: 'Vibrant Student Life at Stanbax Schools',
-    subtitle: 'Beyond classroom instruction, our scholars thrive in inter-house sports competitions, academic & STEM clubs, cultural festivities, and holistic character development.',
-    sportsPhotoUrl: DEFAULT_IMAGES.sports,
-    culturalPhotoUrl: DEFAULT_IMAGES.cultural,
-    artPhotoUrl: DEFAULT_IMAGES.artClass
-  },
-  facultyHeader: {
-    badge: 'Academic Leadership',
-    title: 'Meet Our Faculty & Administration',
-    subtitle: 'Dedicated educators, mentors, and administrators committed to cultivating intellect, discipline, and moral distinction at Stanbax Schools Ibadan.'
-  },
-  noticesHeader: {
-    badge: 'Official School Bulletins',
-    title: 'School Announcements & Notices',
-    subtitle: 'Important updates, academic deadlines, and institutional directives from the school administration.'
-  },
-  calendarHeader: {
-    badge: 'Academic Planning',
-    title: 'Academic Term Calendar',
-    subtitle: 'Key school resumption schedules, continuous assessment periods, parent-teacher conferences, and holiday breaks.'
-  },
-  socialLinks: {
-    facebook: 'https://facebook.com/stanbaxschools',
-    instagram: 'https://instagram.com/stanbaxschools',
-    twitter: 'https://twitter.com/stanbaxschools',
-    linkedin: 'https://linkedin.com/company/stanbaxschools',
-    youtube: 'https://youtube.com/@stanbaxschools'
-  },
   stats: [
     { label: 'Academic Rating', value: '100% WASSCE' },
     { label: 'Scholars Enrolled', value: '850+' },
     { label: 'Dedicated Faculty', value: '65+' },
     { label: 'Years of Heritage', value: '18+' }
-  ],
-  websiteTheme: 'royal-navy'
+  ]
 };
-
-export const WEBSITE_THEMES: ThemeConfig[] = [
-  {
-    id: 'royal-navy',
-    name: 'Royal Navy & Imperial Gold',
-    tagline: 'Collegiate Heritage & Institutional Authority',
-    description: 'Deep Oxford navy, royal crimson, and warm imperial gold on warm ivory parchment. Prestigious British-Nigerian collegiate heritage.',
-    primaryColor: '#1E3A8A',
-    secondaryColor: '#0F172A',
-    accentColor: '#DC2626',
-    goldColor: '#F59E0B',
-    bgBase: '#FDFBF7',
-    badge: 'Classic Heritage',
-    previewBg: 'from-slate-900 via-blue-950 to-red-950'
-  },
-  {
-    id: 'emerald-gold',
-    name: 'Emerald Distinction & Warm Sand',
-    tagline: 'Scholastic Vitality & Environmental Dignity',
-    description: 'Deep forest emerald, warm ochre gold, and crisp sage on botanical alabaster cream. Inspires intellectual growth and vitality.',
-    primaryColor: '#065F46',
-    secondaryColor: '#022C22',
-    accentColor: '#059669',
-    goldColor: '#D97706',
-    bgBase: '#F6FAF6',
-    badge: 'Growth & Prestige',
-    previewBg: 'from-emerald-950 via-teal-950 to-amber-950'
-  },
-  {
-    id: 'crimson-obsidian',
-    name: 'Cardinal Crimson & Midnight Obsidian',
-    tagline: 'Modern Ivy League & Academic Mastery',
-    description: 'Rich cardinal crimson, midnight obsidian slate, and champagne bronze on modern crisp linen. Bold, authoritative, and striking.',
-    primaryColor: '#881337',
-    secondaryColor: '#090D16',
-    accentColor: '#BE123C',
-    goldColor: '#EAB308',
-    bgBase: '#FAFAFA',
-    badge: 'High Impact Modern',
-    previewBg: 'from-neutral-950 via-rose-950 to-stone-900'
-  }
-];
 
 export const DEFAULT_SCHOOL_STATS = SCHOOL_INFO.stats || [];
 
@@ -917,82 +831,55 @@ export const DEFAULT_ABOUT_CONTENT: AboutSectionContent = {
   founderRole: 'Founder & Proprietress',
   establishedYear: '2007',
   vision: 'To be Nigeria’s foremost institution where holistic education inspires future global leaders.',
-  mission: 'To provide world-class, learner-centered education combining academic rigour, technological mastery, and solid moral foundations.',
-  quote: 'Excellence is not an accident; it is the habit of dedicated mentors and eager minds.',
-  founderPhotoUrl: DEFAULT_IMAGES.founders,
-  heritageText: 'Heritage of Impact'
+  mission: 'To provide world-class, learner-centered education combining academic rigour, technological mastery, and solid moral foundations.'
 };
 
 export const DEFAULT_TESTIMONIALS_HEADER: TestimonialsSectionContent = {
   badge: 'Parent & Scholar Voices',
-  title: 'What Families Say About Stanbax Schools',
-  subtitle: "Hear from parents and guardians across Bodija, Oluyole, Jericho, and greater Ibadan on their children's growth and academic success.",
-  satisfactionRate: 'Over 98%',
-  satisfactionTitle: 'Over 98% Parent Satisfaction Rate',
-  satisfactionNote: 'Based on annual PTA quality & educational experience surveys.',
-  associationBadge: 'Stanbax PTA Association'
+  title: 'Trusted by Over 800 Families in Ibadan',
+  subtitle: 'Hear directly from parents and alumni about the transformative impact of the Stanbax education.'
 };
 
 export const DEFAULT_ACADEMIC_PROGRAMS: AcademicProgram[] = [
   {
     id: 'prog-1',
     title: 'Early Years & Foundation Stage',
-    category: 'Early Years',
     ageRange: 'Ages 3 Months – 5 Years',
-    ageGroup: 'Crèche & Nursery',
     gradeLevels: 'Creche, Playgroup, Nursery 1 & 2',
     description: 'Gentle, stimulating environments fostering early phonics, sensory exploration, numbers, and social confidence.',
     features: ['Montessori-inspired learning aids', 'Safe infant nap pods & play zones', 'Creative developmental play & sensory learning', 'Experienced toddler caregivers'],
     color: 'amber',
-    iconName: 'School',
-    studentCount: '120+',
-    imageUrl: DEFAULT_IMAGES.earlyYears,
-    subjects: ['Sensory Exploration', 'Phonics & Literacy', 'Early Numeracy', 'Storytelling & Music']
+    iconName: 'School'
   },
   {
     id: 'prog-2',
     title: 'Primary School (Basic 1 – 6)',
-    category: 'Primary',
     ageRange: 'Ages 5 – 11 Years',
-    ageGroup: 'Basic 1 – 6',
     gradeLevels: 'Primary 1 to Primary 6',
     description: 'Solid grounding in literacy, mathematics, discovery science, French, cultural arts, and digital coding.',
     features: ['Accelerated reading & phonetics', 'Singapore mathematics methodology', 'Weekly coding & robotics labs', 'Inter-school debate & sports'],
     color: 'blue',
-    iconName: 'BookOpen',
-    studentCount: '280+',
-    imageUrl: DEFAULT_IMAGES.artClass,
-    subjects: ['Mathematics & Logic', 'English Language Arts', 'Basic Science & Technology', 'French & Yoruba', 'Computer Studies', 'Cultural & Creative Arts']
+    iconName: 'BookOpen'
   },
   {
     id: 'prog-3',
     title: 'Junior Secondary School',
-    category: 'Junior Secondary',
     ageRange: 'Ages 11 – 14 Years',
-    ageGroup: 'JSS 1 – 3',
     gradeLevels: 'JSS 1 to JSS 3',
     description: 'Rigorous foundation in integrated sciences, pre-vocational studies, languages, and critical analytical thinking.',
     features: ['Comprehensive BECE preparation', 'Introductory lab sciences', 'Leadership and mentorship circles', 'Young Inventors & STEM club'],
     color: 'emerald',
-    iconName: 'FlaskConical',
-    studentCount: '220+',
-    imageUrl: DEFAULT_IMAGES.sports,
-    subjects: ['Basic Science & Pre-Tech', 'Mathematics', 'English & Literature', 'Business Studies', 'French Language', 'Civic & Moral Education']
+    iconName: 'FlaskConical'
   },
   {
     id: 'prog-4',
     title: 'Senior Secondary School',
-    category: 'Senior Secondary',
     ageRange: 'Ages 14 – 17 Years',
-    ageGroup: 'SSS 1 – 3',
     gradeLevels: 'SSS 1 to SSS 3',
     description: 'Specialized tracks across Science, Arts & Humanities, and Commercial studies targeting university matriculation.',
     features: ['Intensive WASSCE / NECO drills', 'UTME computer-based mock testing', 'University guidance counselling', 'Olympiad competitions'],
     color: 'purple',
-    iconName: 'GraduationCap',
-    studentCount: '230+',
-    imageUrl: DEFAULT_IMAGES.faculty,
-    subjects: ['Advanced Physics & Chemistry', 'Biology & Further Maths', 'Literature-in-English', 'Financial Accounting & Commerce', 'Technical Drawing', 'Data Processing']
+    iconName: 'GraduationCap'
   }
 ];
 
@@ -1001,40 +888,15 @@ export const DEFAULT_FEATURED_COURSES: FeaturedCourse[] = [
     id: 'fc-1',
     title: 'Robotics & Applied Artificial Intelligence',
     level: 'Upper Primary & Secondary',
-    grade: 'Primary 4 - SSS 3',
     description: 'Hands-on micro-controller programming, sensor integration, and algorithm design.',
-    highlight: 'Hands-on micro-controller programming, autonomous sensor circuitry, and algorithm design.',
-    tutor: 'Engr. D. Adeleke',
-    students: '48 Scholars',
-    duration: '2 hrs / week',
-    highlights: ['Arduino & Micro:bit programming', 'Autonomous line-follower robotics', 'National STEM exhibition entry'],
-    imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&q=80'
+    highlights: ['Arduino & Micro:bit programming', 'Autonomous line-follower robotics', 'National STEM exhibition entry']
   },
   {
     id: 'fc-2',
     title: 'Speech Diction & Public Oratory',
     level: 'All Grades',
-    grade: 'Basic 1 - SSS 3',
     description: 'Mastery of phonetics, elocution, debate, and persuasive presentation skills.',
-    highlight: 'Mastery of phonetics, elocution, parliamentary debate, and persuasive presentation skills.',
-    tutor: 'Mrs. Folake Adeyemi',
-    students: '62 Scholars',
-    duration: '90 mins / week',
-    highlights: ['Queen’s English phonetic drill', 'Model United Nations participation', 'Termly public speaking contest'],
-    imageUrl: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 'fc-3',
-    title: 'Creative Arts & Design Studio',
-    level: 'Basic 1 - JSS 3',
-    grade: 'Basic 1 - JSS 3',
-    description: 'Practical visual arts, sculpture, painting, and exhibition curation.',
-    highlight: 'Fine art techniques, digital graphics, canvas painting, and classical ceramics craftsmanship.',
-    tutor: 'Mr. David Adeleke',
-    students: '35 Scholars',
-    duration: '2 hrs / week',
-    highlights: ['Canvas acrylic painting', 'Ceramics & textile sculpture', 'Annual arts gala exhibition'],
-    imageUrl: DEFAULT_IMAGES.artClass
+    highlights: ['Queen’s English phonetic drill', 'Model United Nations participation', 'Termly public speaking contest']
   }
 ];
 
@@ -1258,53 +1120,21 @@ export const DEFAULT_TESTIMONIALS: Testimonial[] = [
     id: 'test-1',
     name: 'Dr. (Mrs.) Yinka Ajayi',
     relationship: 'Parent of SSS 2 Scholar',
-    relation: 'Parent of SSS 2 Scholar',
-    location: 'Bodija, Ibadan',
     studentName: 'Tolu Ajayi',
     studentGrade: 'SSS 2 Science',
     comment: 'Stanbax Schools has exceeded our expectations. The dedication of the teachers, the transparent daily attendance tracking, and the robotics curriculum have made my daughter a passionate learner.',
     rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80',
-    imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80'
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80'
   },
   {
     id: 'test-2',
     name: 'Engr. Kenneth Eze',
     relationship: 'Parent of Primary 4 Scholar',
-    relation: 'Parent of Primary 4 Scholar',
-    location: 'Oluyole Estate, Ibadan',
     studentName: 'Somto Eze',
     studentGrade: 'Primary 4',
     comment: 'The moral discipline and academic rigour are top-notch. When I receive the real-time attendance and assessment updates on the portal, I know my child is in safe, professional hands.',
     rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80',
-    imageUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 'test-3',
-    name: 'Alhaji & Alhaja Bello',
-    relationship: 'Parents of JSS 3 Scholar',
-    relation: 'Parents of JSS 3 Scholar',
-    location: 'Jericho GRA, Ibadan',
-    studentName: 'Farouq Bello',
-    studentGrade: 'JSS 3',
-    comment: 'Our son’s confidence and problem-solving mindset skyrocketed after enrolling in the British-Nigerian program. The teachers genuinely care for each child.',
-    rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    id: 'test-4',
-    name: 'Barrister (Mrs.) Folashade Adeleke',
-    relationship: 'PTA Committee Member',
-    relation: 'Parent of SSS 1 Scholar',
-    location: 'Agodi GRA, Ibadan',
-    studentName: 'Tiwa Adeleke',
-    studentGrade: 'SSS 1',
-    comment: 'The digital portal, seamless CBT exam training, and personalized mentoring make Stanbax Schools the premier choice for holistic upbringing in Oyo State.',
-    rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
-    imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80'
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80'
   }
 ];
 
@@ -2122,5 +1952,24 @@ export const DEFAULT_CHAT_MESSAGES: SchoolChatMessage[] = [
     timestamp: '2026-09-23T16:20:00.000Z'
   }
 ];
+
+// ==========================================
+// 6. DEFAULT SCHOOL REPRESENTATIVE & VISITOR INQUIRIES
+// ==========================================
+export const DEFAULT_SCHOOL_REP_CONFIG: SchoolRepConfig = {
+  activeRole: 'principal',
+  repName: 'Mrs. Bello',
+  repTitle: 'School Principal & Head of Administration',
+  repAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+  isAvailable: false, // Default: Calvin AI acts as representative when rep is offline!
+  welcomeMessage: 'Welcome to Stanbax Schools Ibadan! I am Mrs. Bello, Principal. How may we assist your family today with admissions, entrance examinations, bursary schedules, or our British-Nigerian curriculum?',
+  contactPhone: '+234 803 123 4567',
+  contactEmail: 'admissions@stanbaxschools.edu.ng',
+  statusText: 'Away on Campus Inspection • Calvin AI Virtual Rep Active',
+  officeHours: 'Monday – Friday, 8:00 AM – 4:30 PM'
+};
+
+export const DEFAULT_VISITOR_CONVERSATIONS: VisitorConversation[] = [];
+
 
 

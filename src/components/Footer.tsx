@@ -41,13 +41,8 @@ export const Footer: React.FC<FooterProps> = ({
               <SchoolLogo size="md" variant="light" showText={true} />
             </div>
             <p className="text-xs text-stone-400 leading-relaxed max-w-sm">
-              {schoolInfo.footerBio || 'Dedicated to academic rigour, high moral character, and innovative technology literacy. Accredited British-Nigerian curriculum from Early Years to Senior Secondary in Ibadan.'}
+              Dedicated to academic rigour, high moral character, and innovative technology literacy. Accredited British-Nigerian curriculum from Early Years to Senior Secondary in Ibadan.
             </p>
-            {schoolInfo.footerAccreditation && (
-              <p className="text-[11px] text-amber-300/80 font-bold">
-                ✓ {schoolInfo.footerAccreditation}
-              </p>
-            )}
             <div className="pt-2 text-xs space-y-1.5 text-stone-400">
               <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -62,37 +57,6 @@ export const Footer: React.FC<FooterProps> = ({
                 <span>{schoolInfo.email}</span>
               </div>
             </div>
-
-            {/* Social Links */}
-            {schoolInfo.socialLinks && (
-              <div className="pt-2 flex items-center gap-2.5">
-                {schoolInfo.socialLinks.facebook && (
-                  <a href={schoolInfo.socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-red-700 text-stone-300 hover:text-white flex items-center justify-center text-xs transition" title="Facebook">
-                    f
-                  </a>
-                )}
-                {schoolInfo.socialLinks.instagram && (
-                  <a href={schoolInfo.socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-red-700 text-stone-300 hover:text-white flex items-center justify-center text-xs transition" title="Instagram">
-                    ig
-                  </a>
-                )}
-                {schoolInfo.socialLinks.twitter && (
-                  <a href={schoolInfo.socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-red-700 text-stone-300 hover:text-white flex items-center justify-center text-xs transition" title="X / Twitter">
-                    𝕏
-                  </a>
-                )}
-                {schoolInfo.socialLinks.linkedin && (
-                  <a href={schoolInfo.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-red-700 text-stone-300 hover:text-white flex items-center justify-center text-xs transition" title="LinkedIn">
-                    in
-                  </a>
-                )}
-                {schoolInfo.socialLinks.youtube && (
-                  <a href={schoolInfo.socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-red-700 text-stone-300 hover:text-white flex items-center justify-center text-xs transition" title="YouTube">
-                    yt
-                  </a>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Col 3: Academic Sections */}
@@ -150,7 +114,7 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom copyright */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-stone-500">
           <div>
-            {schoolInfo.footerCopyright || `© ${new Date().getFullYear()} ${schoolInfo.name}, Ibadan, Nigeria. All rights reserved.`}
+            © {new Date().getFullYear()} {schoolInfo.name}, Ibadan, Nigeria. All rights reserved.
           </div>
           <div className="flex items-center gap-4">
             <span>Powered by Digital Academic Registry</span>

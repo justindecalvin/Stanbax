@@ -23,10 +23,6 @@ export const AcademicCalendarSection: React.FC = () => {
     }
   };
 
-  const calBadge = schoolInfo.calendarHeader?.badge || 'Academic Planning';
-  const calTitle = schoolInfo.calendarHeader?.title || `${schoolInfo.activeSession || '2026/2027 Academic Session'} Calendar`;
-  const calSubtitle = schoolInfo.calendarHeader?.subtitle || 'Key school resumption schedules, continuous assessment periods, parent-teacher conferences, and holiday breaks.';
-
   return (
     <section id="calendar" className="py-16 sm:py-20 bg-[#FAF7EE] border-t border-[#EAE2CE] font-['Nunito',sans-serif]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -34,13 +30,13 @@ export const AcademicCalendarSection: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100 text-neutral-900 border border-amber-300 font-extrabold text-xs uppercase tracking-wider mb-2">
               <Calendar className="w-3.5 h-3.5 text-red-600" />
-              <span>{calBadge}</span>
+              <span>Academic Planning</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-black text-neutral-900 tracking-tight">
-              {calTitle}
+              {schoolInfo.activeSession || '2025/2026 Academic Session'} Calendar
             </h2>
             <p className="text-neutral-600 text-sm sm:text-base mt-2 max-w-xl">
-              {calSubtitle}
+              Key school resumption schedules, continuous assessment periods, parent-teacher conferences, and holiday breaks.
             </p>
           </div>
 

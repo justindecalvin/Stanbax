@@ -13,23 +13,8 @@ interface StudentLifeSectionProps {
 }
 
 export const StudentLifeSection: React.FC<StudentLifeSectionProps> = ({ onOpenAdmissions }) => {
-  const { clubs, houseStandings, schoolInfo, images } = useSchool();
+  const { clubs, houseStandings } = useSchool();
   const [activeSubTab, setActiveSubTab] = useState<'houses' | 'clubs'>('houses');
-
-  const headerBadge = schoolInfo.studentLifeHeader?.badge || 'School Life & Holistic Development';
-  const headerTitle = schoolInfo.studentLifeHeader?.title || 'Vibrant Student Life at Stanbax Schools';
-  const headerSubtitle = schoolInfo.studentLifeHeader?.subtitle || 'Beyond classroom instruction, our scholars thrive in inter-house sports competitions, academic & STEM clubs, cultural festivities, and holistic character development.';
-
-  const sportsImg = images.sports || schoolInfo.studentLifeHeader?.sportsPhotoUrl || 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&fit=crop&q=80';
-  const culturalImg = images.cultural || schoolInfo.studentLifeHeader?.culturalPhotoUrl || 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop&q=80';
-  const artImg = images.artClass || schoolInfo.studentLifeHeader?.artPhotoUrl || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80';
-
-  const sportsBadge = schoolInfo.studentLifeHeader?.sportsBadge || 'Athletics & Fitness';
-  const sportsTitle = schoolInfo.studentLifeHeader?.sportsTitle || 'Inter-House Sports Tournament';
-  const culturalBadge = schoolInfo.studentLifeHeader?.culturalBadge || 'Heritage & Unity';
-  const culturalTitle = schoolInfo.studentLifeHeader?.culturalTitle || 'Annual Cultural Day & Arts';
-  const artBadge = schoolInfo.studentLifeHeader?.artBadge || 'Discovery & Design';
-  const artTitle = schoolInfo.studentLifeHeader?.artTitle || 'Creative Arts & STEM Labs';
 
   return (
     <section className="py-20 bg-[#FDFBF7] border-b border-stone-200">
@@ -37,59 +22,14 @@ export const StudentLifeSection: React.FC<StudentLifeSectionProps> = ({ onOpenAd
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold uppercase tracking-wider mb-3">
             <Award className="w-3.5 h-3.5 text-amber-600" />
-            <span>{headerBadge}</span>
+            <span>School Life & Holistic Development</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
-            {headerTitle}
+            Vibrant Student Life at Stanbax Schools
           </h2>
           <p className="text-stone-600 text-sm sm:text-base mt-2">
-            {headerSubtitle}
+            Beyond classroom instruction, our scholars thrive in inter-house sports competitions, academic & STEM clubs, cultural festivities, and holistic character development.
           </p>
-        </div>
-
-        {/* Student Life Photo Highlights Banner */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="relative rounded-3xl overflow-hidden shadow-sm border border-stone-200 group h-52">
-            <img 
-              src={sportsImg} 
-              alt={sportsTitle} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-transparent flex items-end p-5">
-              <div className="text-white">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">{sportsBadge}</span>
-                <h4 className="text-sm font-black">{sportsTitle}</h4>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative rounded-3xl overflow-hidden shadow-sm border border-stone-200 group h-52">
-            <img 
-              src={culturalImg} 
-              alt={culturalTitle} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-transparent flex items-end p-5">
-              <div className="text-white">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">{culturalBadge}</span>
-                <h4 className="text-sm font-black">{culturalTitle}</h4>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative rounded-3xl overflow-hidden shadow-sm border border-stone-200 group h-52">
-            <img 
-              src={artImg} 
-              alt={artTitle} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-transparent flex items-end p-5">
-              <div className="text-white">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">{artBadge}</span>
-                <h4 className="text-sm font-black">{artTitle}</h4>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Sub-tab selection */}

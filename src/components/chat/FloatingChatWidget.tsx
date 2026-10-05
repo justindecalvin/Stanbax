@@ -15,6 +15,7 @@ import {
 } from '../RealIcons';
 import { SchoolLogo } from '../SchoolLogo';
 import { SchoolChatSystem } from './SchoolChatSystem';
+import { SchoolRepresentativeChat } from './SchoolRepresentativeChat';
 
 export const FloatingChatWidget: React.FC = () => {
   const {
@@ -34,13 +35,17 @@ export const FloatingChatWidget: React.FC = () => {
     isAdminAuthenticated,
     getChannelUnreadCount,
     getTotalUnreadCount,
-    markChannelAsRead
+    markChannelAsRead,
+    schoolRepConfig
   } = useSchool();
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'class' | 'club' | 'direct' | 'announcement'>('all');
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+
+  // Demo fallback role switcher for public website evaluation
+  const [demoRole, setDemoRole] = useState<'student' | 'tutor' | 'parent' | 'admin'>('student');
 
   // Determine current active user identity
   const currentIdentity = useMemo(() => {
@@ -67,18 +72,22 @@ export const FloatingChatWidget: React.FC = () => {
       };
     }
     if (isParentAuthenticated) {
-      const activeParent = parents.find(p => p.id === activeParentId) || parents[0];
-      if (activeParent) {
-        return {
-          role: 'parent' as const,
-          id: activeParent.id,
-          name: activeParent.fullName,
-          subtext: 'Guardian / Parent',
-          badge: 'Parent',
-          classId: undefined,
-          clubs: []
-        };
-      }
+      const activeParent = parents.find(p => p.id === activeParentId) || parents[0] || {
+        id: 'parent-1',
+        fullName: 'Chief & Mrs. Adebayo Adeleke',
+        phone: '+234 803 445 6789',
+        email: 'adeleke.family@gmail.com',
+        childrenIds: ['stu-1']
+      };
+      return {
+        role: 'parent' as const,
+        id: activeParent.id,
+        name: activeParent.fullName,
+        subtext: 'Guardian / Parent',
+        badge: 'Parent',
+        classId: undefined,
+        clubs: []
+      };
     }
     if (isAdminAuthenticated) {
       return {
@@ -92,14 +101,60 @@ export const FloatingChatWidget: React.FC = () => {
       };
     }
 
+    // Default demo persona for visitors on public website
+    if (demoRole === 'tutor') {
+      const demoTutor = tutors[0] || { id: 'tut-1', name: 'Mr. Babatunde Adekunle', role: 'Senior Physics Tutor' };
+      return {
+        role: 'tutor' as const,
+        id: demoTutor.id,
+        name: demoTutor.name,
+        subtext: `${demoTutor.role || 'Faculty Tutor'} (Demo Mode)`,
+        badge: '👨‍🏫 Tutor',
+        classId: undefined,
+        clubs: []
+      };
+    }
+    if (demoRole === 'admin') {
+      return {
+        role: 'admin' as const,
+        id: 'admin-1',
+        name: 'School Administrator',
+        subtext: 'Principal Oversight (Demo Mode)',
+        badge: '👑 Admin',
+        classId: undefined,
+        clubs: []
+      };
+    }
+    if (demoRole === 'parent') {
+      return {
+        role: 'parent' as const,
+        id: 'parent-demo',
+        name: 'Mrs. Folashade Adeleke',
+        subtext: 'Parent of Tiwa (Demo Mode)',
+        badge: 'Parent',
+        classId: undefined,
+        clubs: []
+      };
+    }
+
+    // Demo student Tiwa Savage
+    const demoStudent = students.find(s => s.id === 'demo-student') || students[0] || {
+      id: 'demo-student',
+      name: 'Tiwa Savage',
+      grade: 'SSS 2',
+      classId: 'cls-sss2',
+      clubs: ['JETS Science Club', 'Debate & Literary Society'],
+      prefectBadge: '🏅 Head Girl'
+    };
+
     return {
-      role: 'guest' as const,
-      id: 'guest-visitor',
-      name: 'Campus Visitor',
-      subtext: 'Institutional Announcements',
-      badge: undefined,
-      classId: undefined,
-      clubs: []
+      role: 'student' as const,
+      id: demoStudent.id,
+      name: demoStudent.name,
+      subtext: `${demoStudent.grade || 'SSS 2'} Scholar (Demo Mode)`,
+      badge: demoStudent.prefectBadge,
+      classId: demoStudent.classId,
+      clubs: demoStudent.clubs || []
     };
   }, [
     isStudentAuthenticated, 
@@ -107,9 +162,12 @@ export const FloatingChatWidget: React.FC = () => {
     isTutorAuthenticated, 
     tutor, 
     isParentAuthenticated, 
-    parents, 
-    activeParentId, 
-    isAdminAuthenticated
+    parents,
+    activeParentId,
+    isAdminAuthenticated, 
+    demoRole, 
+    students, 
+    tutors
   ]);
 
   // Authorized channels for the current user
@@ -157,6 +215,7 @@ export const FloatingChatWidget: React.FC = () => {
 
   // Position: if WhatsApp is visible (on public homepage or proprietress page), stack above it at bottom-22; otherwise bottom-6
   const isPortalView = activeSection.includes('portal');
+  const isLandingPageOrGuest = !isPortalView || (!isStudentAuthenticated && !isTutorAuthenticated && !isParentAuthenticated && !isAdminAuthenticated);
   const bottomPositionClass = isPortalView ? 'bottom-6 right-6' : 'bottom-22 right-6';
 
   return (
@@ -173,17 +232,37 @@ export const FloatingChatWidget: React.FC = () => {
               setSearchTerm('');
             }
           }}
-          className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-700 via-indigo-600 to-blue-600 hover:from-indigo-600 hover:to-blue-500 text-white shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-108 active:scale-95 ring-4 ring-indigo-500/25 cursor-pointer group"
-          title="School Community Chat Hub • View All Chats"
-          aria-label="Open School Community Chat Hub"
+          className={`relative w-14 h-14 rounded-full text-white shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-108 active:scale-95 cursor-pointer group ${
+            isLandingPageOrGuest
+              ? 'bg-gradient-to-tr from-blue-950 via-blue-900 to-indigo-800 ring-4 ring-amber-400/30 border border-amber-300/40'
+              : 'bg-gradient-to-tr from-indigo-700 via-indigo-600 to-blue-600 ring-4 ring-indigo-500/25'
+          }`}
+          title={
+            isLandingPageOrGuest 
+              ? `Chat with ${schoolRepConfig.repName} (${schoolRepConfig.repTitle})` 
+              : "School Community Chat Hub • View All Chats"
+          }
+          aria-label="Open Live Chat"
         >
           {/* Small 💬 symbol as requested */}
           <span className="text-2xl select-none leading-none group-hover:scale-110 transition-transform">
             💬
           </span>
 
+          {/* Active Status Pulse Dot for Representative on Landing Page */}
+          {isLandingPageOrGuest && (
+            <span 
+              className={`absolute top-0 right-0 w-4 h-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center ${
+                schoolRepConfig.isAvailable ? 'bg-emerald-500' : 'bg-purple-500'
+              }`}
+              title={schoolRepConfig.isAvailable ? 'Representative Online' : 'Calvin AI Virtual Rep Active'}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full bg-white ${schoolRepConfig.isAvailable ? 'animate-ping' : ''}`} />
+            </span>
+          )}
+
           {/* Unread message counter badge */}
-          {totalUnreadCount > 0 && (
+          {!isLandingPageOrGuest && totalUnreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse">
               {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
             </span>
@@ -192,9 +271,21 @@ export const FloatingChatWidget: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* ALL CHATS POPUP DRAWER (DISPLAYS ALL CHATS WHEN 💬 IS CLICKED)            */}
+      {/* 1. LANDING PAGE & VISITOR CHAT: PERSONALIZED SCHOOL REPRESENTATIVE CHAT   */}
       {/* ========================================================================= */}
-      {isOpen && !activeChannelId && (
+      {isOpen && isLandingPageOrGuest && (
+        <div 
+          className="fixed bottom-20 right-3 sm:bottom-24 sm:right-6 w-[94vw] max-w-[420px] h-[580px] max-h-[85vh] z-50 flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SchoolRepresentativeChat onClose={() => setIsOpen(false)} />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. AUTHENTICATED INTERNAL PORTAL CHAT DRAWER                              */}
+      {/* ========================================================================= */}
+      {isOpen && !isLandingPageOrGuest && !activeChannelId && (
         <div 
           className="fixed bottom-24 right-4 sm:right-6 w-[94vw] max-w-[400px] h-[580px] max-h-[82vh] bg-white rounded-3xl shadow-2xl border border-neutral-200 z-50 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
@@ -231,6 +322,27 @@ export const FloatingChatWidget: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Quick Demo Persona Switcher (when browsing publicly) */}
+            {!isStudentAuthenticated && !isTutorAuthenticated && !isParentAuthenticated && !isAdminAuthenticated && (
+              <div className="bg-white/10 rounded-xl p-1.5 flex items-center justify-between text-[10px] gap-1">
+                <span className="text-neutral-300 font-bold px-1">Switch View:</span>
+                <div className="flex items-center gap-1">
+                  {(['student', 'tutor', 'parent', 'admin'] as const).map(role => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setDemoRole(role)}
+                      className={`px-2 py-0.5 rounded-lg font-black uppercase text-[9px] transition cursor-pointer ${
+                        demoRole === role ? 'bg-amber-400 text-neutral-950' : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search Bar & Category Filter Tabs */}
@@ -264,32 +376,6 @@ export const FloatingChatWidget: React.FC = () => {
 
           {/* Chat List Items */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {/* PINNED 24/7 CALVIN AI TUTOR & AMBASSADOR */}
-            <div
-              onClick={() => setActiveChannelId('calvin-ai')}
-              className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent border-2 border-amber-400/60 hover:border-amber-500 hover:bg-amber-500/15 transition flex items-center justify-between gap-2.5 cursor-pointer shadow-xs group"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 text-stone-950 flex items-center justify-center shrink-0 shadow-md font-black text-sm ring-2 ring-amber-400/50">
-                  <Sparkles className="w-5 h-5 text-stone-950" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-black text-stone-900 truncate group-hover:text-amber-900 transition">
-                      Calvin AI • Academic Tutor & Guide
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-stone-950 uppercase tracking-wider">
-                      24/7 AI
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-amber-900/80 font-medium truncate mt-0.5">
-                    Ask curriculum questions, step-by-step math/science & admissions
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-amber-600 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-
             {displayedChannels.length === 0 ? (
               <div className="py-12 text-center text-xs text-neutral-400 space-y-2">
                 <MessageSquare className="w-8 h-8 mx-auto text-neutral-300" />
@@ -406,7 +492,7 @@ export const FloatingChatWidget: React.FC = () => {
       {/* ========================================================================= */}
       {activeChannelId && (
         <SchoolChatSystem
-          currentUserRole={currentIdentity.role === 'guest' ? 'student' : currentIdentity.role}
+          currentUserRole={currentIdentity.role}
           currentUserId={currentIdentity.id}
           currentUserName={currentIdentity.name}
           currentUserSubtext={currentIdentity.subtext}
