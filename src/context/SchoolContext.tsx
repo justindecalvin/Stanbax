@@ -83,7 +83,9 @@ import {
   SchoolRepRole,
   SchoolRepConfig,
   VisitorChatMessage,
-  VisitorConversation
+  VisitorConversation,
+  ChatAppointment,
+  ChatTransferRecord
 } from '../types';
 import { cleanExpiredStatuses, create16HourStatus, INITIAL_EPHEMERAL_STATUSES } from '../data/defaultEphemeralStatuses';
 import { DEFAULT_GALLERY_PHOTOS } from '../data/defaultGalleryPhotos';
@@ -594,11 +596,40 @@ interface SchoolContextType {
   updateSchoolRepConfig: (updates: Partial<SchoolRepConfig>) => void;
   toggleRepAvailability: (available?: boolean) => void;
   visitorConversations: VisitorConversation[];
-  sendVisitorMessage: (visitorId: string, message: string, visitorInfo?: { name?: string; phone?: string; email?: string; category?: any }) => Promise<VisitorChatMessage | null>;
-  replyAsRepresentative: (visitorId: string, replyContent: string, repInfo?: { name?: string; title?: string }) => void;
+  sendVisitorMessage: (
+    visitorId: string, 
+    message: string, 
+    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any },
+    attachment?: { url: string; name: string; type: 'image' | 'document' | 'audio'; audioDuration?: number }
+  ) => Promise<VisitorChatMessage | null>;
+  replyAsRepresentative: (
+    visitorId: string, 
+    replyContent: string, 
+    repInfo?: { name?: string; title?: string },
+    attachment?: { url: string; name: string; type: 'image' | 'document' | 'audio'; audioDuration?: number }
+  ) => void;
   requestCalvinAiInstantReply: (visitorId: string) => Promise<VisitorChatMessage | null>;
   getVisitorConversation: (visitorId: string) => VisitorConversation | undefined;
   markVisitorConversationRead: (visitorId: string) => void;
+  markConversationSeenByAdmin: (visitorId: string) => void;
+  markConversationSeenByVisitor: (visitorId: string) => void;
+  setChatTyping: (visitorId: string, sender: 'representative' | 'visitor', isTyping: boolean, senderName?: string) => Promise<void>;
+  typingMap: Record<string, { isRepTyping?: boolean; repName?: string; isVisitorTyping?: boolean; visitorName?: string }>;
+  bookChatAppointment: (
+    visitorId: string, 
+    appointmentData: Omit<ChatAppointment, 'id' | 'createdAt' | 'status'>
+  ) => Promise<ChatAppointment>;
+  transferConversationDepartment: (
+    visitorId: string, 
+    targetRole: SchoolRepRole, 
+    targetRepName: string, 
+    targetRepTitle: string, 
+    reason?: string
+  ) => void;
+  updateVisitorNotificationOptIn: (
+    visitorId: string, 
+    optIn: { whatsapp?: boolean; sms?: boolean; phone?: string; email?: string }
+  ) => void;
 }
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
@@ -5977,7 +6008,48 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return DEFAULT_VISITOR_CONVERSATIONS;
   });
 
-  // Cross-tab synchronization for visitor inquiries & representative status
+  // Real-time typing indicators registry (conversationId -> typing state)
+  const [typingMap, setTypingMap] = useState<Record<string, { isRepTyping?: boolean; repName?: string; isVisitorTyping?: boolean; visitorName?: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_chat_typing');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  const setChatTyping = async (visitorId: string, sender: 'representative' | 'visitor', isTyping: boolean, senderName?: string) => {
+    if (!visitorId) return;
+    setTypingMap(prev => {
+      const current = prev[visitorId] || {};
+      const updated = {
+        ...current,
+        ...(sender === 'representative'
+          ? { isRepTyping: isTyping, repName: isTyping ? (senderName || schoolRepConfig.repName) : undefined }
+          : { isVisitorTyping: isTyping, visitorName: isTyping ? senderName : undefined })
+      };
+      const nextMap = { ...prev, [visitorId]: updated };
+      try {
+        localStorage.setItem('stanbax_chat_typing', JSON.stringify(nextMap));
+        window.dispatchEvent(new Event('storage'));
+      } catch {}
+      return nextMap;
+    });
+
+    try {
+      void fetch('/api/chat-typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: visitorId,
+          sender,
+          senderName: senderName || (sender === 'representative' ? schoolRepConfig.repName : 'Visitor'),
+          isTyping
+        })
+      });
+    } catch {}
+  };
+
+  // Cross-tab synchronization for visitor inquiries, representative status, and typing indicators
   useEffect(() => {
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'stanbax_visitor_conversations' && e.newValue) {
@@ -5996,6 +6068,14 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         } catch {}
       }
+      if (e.key === 'stanbax_chat_typing' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && typeof parsed === 'object') {
+            setTypingMap(parsed);
+          }
+        } catch {}
+      }
     };
     window.addEventListener('storage', handleStorageEvent);
     return () => window.removeEventListener('storage', handleStorageEvent);
@@ -6004,22 +6084,32 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const sendVisitorMessage = async (
     visitorId: string,
     messageText: string,
-    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any }
+    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any },
+    attachment?: { url: string; name: string; type: 'image' | 'document' | 'audio'; audioDuration?: number }
   ): Promise<VisitorChatMessage | null> => {
     const text = messageText.trim();
-    if (!text) return null;
+    if (!text && !attachment) return null;
 
+    // Clear typing status on send
+    void setChatTyping(visitorId, 'visitor', false);
+
+    const now = new Date().toISOString();
     const userMsg: VisitorChatMessage = {
       id: `vmsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       sender: 'visitor',
       senderName: visitorInfo?.name || 'Visitor',
-      content: text,
-      timestamp: new Date().toISOString()
+      content: text || (attachment?.type === 'audio' ? '🎤 Voice message' : '📎 Attachment shared'),
+      timestamp: now,
+      status: 'delivered',
+      deliveredAt: now,
+      attachmentUrl: attachment?.url,
+      attachmentName: attachment?.name,
+      attachmentType: attachment?.type,
+      audioDuration: attachment?.audioDuration
     };
 
-    const now = new Date().toISOString();
     const existingConv = visitorConversations.find(c => c.visitorId === visitorId);
-    const effectiveVisitorName = visitorInfo?.name || existingConv?.visitorName || `Prospective Parent #${Math.floor(1000 + Math.random() * 9000)}`;
+    const effectiveVisitorName = visitorInfo?.name || existingConv?.visitorName || `Prospective Parent (${Math.floor(1000 + Math.random() * 9000)})`;
     const historyPayload = existingConv?.messages 
       ? existingConv.messages.map((m: VisitorChatMessage) => ({ sender: m.sender, content: m.content })) 
       : [];
@@ -6088,14 +6178,17 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const data = await res.json();
         const replyText = data?.reply || "Thank you for contacting Stanbax Schools Ibadan! Your inquiry has been received and our school representative will review and respond promptly.";
 
+        const aiMsgNow = new Date().toISOString();
         const aiMsg: VisitorChatMessage = {
           id: `aimsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           sender: 'calvin_ai',
           senderName: 'Calvin AI (Virtual Rep)',
           senderTitle: `Assisting for ${schoolRepConfig.repName}`,
           content: replyText,
-          timestamp: new Date().toISOString(),
-          isAiResponse: true
+          timestamp: aiMsgNow,
+          isAiResponse: true,
+          status: 'delivered',
+          deliveredAt: aiMsgNow
         };
 
         setVisitorConversations(prev => {
@@ -6152,14 +6245,17 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const data = await res.json();
       const replyText = data?.reply || `Thank you for contacting Stanbax Schools! Your query has been noted and ${schoolRepConfig.repName} will reply shortly.`;
 
+      const aiMsgNow = new Date().toISOString();
       const aiMsg: VisitorChatMessage = {
         id: `aimsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         sender: 'calvin_ai',
         senderName: 'Calvin AI (Virtual Rep)',
         senderTitle: `Assisting for ${schoolRepConfig.repName}`,
         content: replyText,
-        timestamp: new Date().toISOString(),
-        isAiResponse: true
+        timestamp: aiMsgNow,
+        isAiResponse: true,
+        status: 'delivered',
+        deliveredAt: aiMsgNow
       };
 
       setVisitorConversations(prev => {
@@ -6192,19 +6288,30 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const replyAsRepresentative = (
     visitorId: string,
     replyContent: string,
-    repInfo?: { name?: string; title?: string }
+    repInfo?: { name?: string; title?: string },
+    attachment?: { url: string; name: string; type: 'image' | 'document' | 'audio'; audioDuration?: number }
   ) => {
     const text = replyContent.trim();
-    if (!text) return;
+    if (!text && !attachment) return;
 
+    // Clear typing status on send
+    void setChatTyping(visitorId, 'representative', false);
+
+    const now = new Date().toISOString();
     const repMsg: VisitorChatMessage = {
       id: `repmsg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       sender: 'representative',
       senderName: repInfo?.name || schoolRepConfig.repName,
       senderTitle: repInfo?.title || schoolRepConfig.repTitle,
       senderAvatar: schoolRepConfig.repAvatar,
-      content: text,
-      timestamp: new Date().toISOString()
+      content: text || (attachment?.type === 'audio' ? '🎤 Representative Voice Memo' : '📎 Document Attached'),
+      timestamp: now,
+      status: 'delivered',
+      deliveredAt: now,
+      attachmentUrl: attachment?.url,
+      attachmentName: attachment?.name,
+      attachmentType: attachment?.type,
+      audioDuration: attachment?.audioDuration
     };
 
     setVisitorConversations(prev => {
@@ -6215,11 +6322,165 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ...existing,
           status: 'resolved' as const,
           unreadByAdmin: false,
-          lastMessageAt: new Date().toISOString(),
+          unreadByVisitor: true,
+          lastMessageAt: now,
           messages: [...existing.messages, repMsg]
         };
         const copy = [...prev];
         copy[idx] = updated;
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+  };
+
+  // 1. Admissions Screening & Consultation Appointment Booking inside Chat
+  const bookChatAppointment = async (
+    visitorId: string,
+    data: Omit<ChatAppointment, 'id' | 'createdAt' | 'status'>
+  ): Promise<ChatAppointment> => {
+    const now = new Date().toISOString();
+    const newAppointment: ChatAppointment = {
+      ...data,
+      id: `apt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      status: 'confirmed',
+      createdAt: now
+    };
+
+    // Auto-sync into School Academic Calendar
+    try {
+      addCalendarEvent({
+        title: `Screening/Visit: ${data.type} (${data.candidateName})`,
+        date: data.date,
+        category: 'Meeting',
+        description: `Scheduled slot: ${data.timeSlot} • Candidate: ${data.candidateName} • Parent contact: ${data.parentPhone}. Notes: ${data.notes || 'None'}`
+      });
+    } catch {}
+
+    const apptMsg: VisitorChatMessage = {
+      id: `msg-apt-${Date.now()}`,
+      sender: 'representative',
+      senderName: schoolRepConfig.repName,
+      senderTitle: schoolRepConfig.repTitle,
+      content: `🎉 Official Appointment Confirmed: ${data.type} for candidate ${data.candidateName} on ${new Date(data.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${data.timeSlot}. A calendar appointment has been logged with our admissions desk.`,
+      timestamp: now,
+      status: 'delivered',
+      deliveredAt: now,
+      isAppointmentNotice: true,
+      appointmentData: newAppointment
+    };
+
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const conv = prev[idx];
+        const updatedAppointments = [...(conv.appointments || []), newAppointment];
+        const updatedMessages = [...conv.messages, apptMsg];
+        const copy = [...prev];
+        copy[idx] = {
+          ...conv,
+          appointments: updatedAppointments,
+          messages: updatedMessages,
+          visitorPhone: data.parentPhone || conv.visitorPhone,
+          visitorEmail: data.parentEmail || conv.visitorEmail,
+          lastMessageAt: now
+        };
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+
+    return newAppointment;
+  };
+
+  // 4. Multi-Representative Department Hand-Off & Routing
+  const transferConversationDepartment = (
+    visitorId: string,
+    targetRole: SchoolRepRole,
+    targetRepName: string,
+    targetRepTitle: string,
+    reason?: string
+  ) => {
+    const now = new Date().toISOString();
+    const existing = visitorConversations.find(c => c.visitorId === visitorId);
+    const currentRole = existing?.assignedRole || schoolRepConfig.activeRole;
+
+    const record: ChatTransferRecord = {
+      fromRole: currentRole,
+      toRole: targetRole,
+      transferredBy: schoolRepConfig.repName,
+      targetRepName,
+      targetRepTitle,
+      reason,
+      timestamp: now
+    };
+
+    const transferMsg: VisitorChatMessage = {
+      id: `transfer-${Date.now()}`,
+      sender: 'representative',
+      senderName: targetRepName,
+      senderTitle: targetRepTitle,
+      content: `🔄 Department Hand-Off: Inquiry transferred to ${targetRepName} (${targetRepTitle})${reason ? ` • Transfer Reason: "${reason}"` : ''}. All conversation history and submitted documents have been routed to the active desk.`,
+      timestamp: now,
+      status: 'delivered',
+      deliveredAt: now,
+      isTransferNotice: true,
+      transferData: record
+    };
+
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const conv = prev[idx];
+        const copy = [...prev];
+        copy[idx] = {
+          ...conv,
+          assignedRole: targetRole,
+          assignedRepName: targetRepName,
+          assignedRepTitle: targetRepTitle,
+          transferHistory: [...(conv.transferHistory || []), record],
+          messages: [...conv.messages, transferMsg],
+          lastMessageAt: now,
+          status: 'waiting_rep',
+          unreadByAdmin: true
+        };
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+  };
+
+  // 5. Visitor WhatsApp/SMS Notification Opt-in
+  const updateVisitorNotificationOptIn = (
+    visitorId: string,
+    optIn: { whatsapp?: boolean; sms?: boolean; phone?: string; email?: string }
+  ) => {
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const conv = prev[idx];
+        const copy = [...prev];
+        copy[idx] = {
+          ...conv,
+          visitorPhone: optIn.phone || conv.visitorPhone,
+          visitorEmail: optIn.email || conv.visitorEmail,
+          notificationOptIn: {
+            ...conv.notificationOptIn,
+            ...optIn
+          }
+        };
         try {
           localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
           window.dispatchEvent(new Event('storage'));
@@ -6244,6 +6505,111 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return prev;
     });
+  };
+
+  // Mark all visitor queries in this conversation as seen & acknowledged by the school representative
+  const markConversationSeenByAdmin = (visitorId: string) => {
+    const now = new Date().toISOString();
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const conv = prev[idx];
+        let changed = false;
+        const updatedMessages = conv.messages.map(m => {
+          if (m.sender === 'visitor' && m.status !== 'seen') {
+            changed = true;
+            return {
+              ...m,
+              status: 'seen' as const,
+              seenAt: m.seenAt || now
+            };
+          }
+          return m;
+        });
+
+        if (!changed && !conv.unreadByAdmin) return prev;
+
+        const updated: VisitorConversation = {
+          ...conv,
+          unreadByAdmin: false,
+          lastSeenByAdminAt: now,
+          messages: updatedMessages
+        };
+        const copy = [...prev];
+        copy[idx] = updated;
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+
+    try {
+      void fetch('/api/chat-delivery/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: visitorId,
+          role: 'representative',
+          name: schoolRepConfig.repName,
+          lastSeenAt: now
+        })
+      });
+    } catch {}
+  };
+
+  // Mark all representative/Calvin AI responses in this conversation as seen by the visitor/user
+  const markConversationSeenByVisitor = (visitorId: string) => {
+    const now = new Date().toISOString();
+    setVisitorConversations(prev => {
+      const idx = prev.findIndex(c => c.visitorId === visitorId);
+      if (idx >= 0) {
+        const conv = prev[idx];
+        let changed = false;
+        const updatedMessages = conv.messages.map(m => {
+          if ((m.sender === 'representative' || m.sender === 'calvin_ai') && m.status !== 'seen') {
+            changed = true;
+            return {
+              ...m,
+              status: 'seen' as const,
+              seenAt: m.seenAt || now
+            };
+          }
+          return m;
+        });
+
+        if (!changed && !conv.unreadByVisitor) return prev;
+
+        const updated: VisitorConversation = {
+          ...conv,
+          unreadByVisitor: false,
+          lastSeenByVisitorAt: now,
+          messages: updatedMessages
+        };
+        const copy = [...prev];
+        copy[idx] = updated;
+        try {
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(copy));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+        return copy;
+      }
+      return prev;
+    });
+
+    try {
+      void fetch('/api/chat-delivery/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: visitorId,
+          role: 'visitor',
+          lastSeenAt: now
+        })
+      });
+    } catch {}
   };
 
   const getVisitorConversation = (visitorId: string) => {
@@ -6600,7 +6966,14 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         replyAsRepresentative,
         requestCalvinAiInstantReply,
         getVisitorConversation,
-        markVisitorConversationRead
+        markVisitorConversationRead,
+        markConversationSeenByAdmin,
+        markConversationSeenByVisitor,
+        setChatTyping,
+        typingMap,
+        bookChatAppointment,
+        transferConversationDepartment,
+        updateVisitorNotificationOptIn
       }}
     >
       {children}

@@ -1113,6 +1113,32 @@ export interface SchoolRepConfig {
   officeHours?: string;
 }
 
+export type MessageDeliveryStatus = 'sent' | 'delivered' | 'seen';
+
+export interface ChatAppointment {
+  id: string;
+  type: 'Entrance Screening' | 'Campus Tour' | 'Principal Interview' | 'Bursary Consultation';
+  date: string;
+  timeSlot: string;
+  candidateName: string;
+  gradeApplying?: string;
+  parentPhone: string;
+  parentEmail?: string;
+  notes?: string;
+  status: 'confirmed' | 'rescheduled' | 'cancelled';
+  createdAt: string;
+}
+
+export interface ChatTransferRecord {
+  fromRole: SchoolRepRole | string;
+  toRole: SchoolRepRole;
+  transferredBy: string;
+  targetRepName: string;
+  targetRepTitle: string;
+  reason?: string;
+  timestamp: string;
+}
+
 export interface VisitorChatMessage {
   id: string;
   sender: 'visitor' | 'representative' | 'calvin_ai';
@@ -1122,6 +1148,19 @@ export interface VisitorChatMessage {
   content: string;
   timestamp: string;
   isAiResponse?: boolean;
+  status?: MessageDeliveryStatus;
+  deliveredAt?: string;
+  seenAt?: string;
+  // Attachments & Voice Notes
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: 'image' | 'document' | 'audio';
+  audioDuration?: number; // seconds
+  // Booking & Department Transfer metadata
+  appointmentData?: ChatAppointment;
+  isAppointmentNotice?: boolean;
+  isTransferNotice?: boolean;
+  transferData?: ChatTransferRecord;
 }
 
 export interface VisitorConversation {
@@ -1134,6 +1173,23 @@ export interface VisitorConversation {
   lastMessageAt: string;
   status: 'open' | 'resolved' | 'waiting_rep';
   unreadByAdmin: boolean;
+  unreadByVisitor?: boolean;
+  lastSeenByAdminAt?: string;
+  lastSeenByVisitorAt?: string;
+  isRepTyping?: boolean;
+  repTypingName?: string;
+  isVisitorTyping?: boolean;
+  assignedRole?: SchoolRepRole;
+  assignedRepName?: string;
+  assignedRepTitle?: string;
+  transferHistory?: ChatTransferRecord[];
+  appointments?: ChatAppointment[];
+  notificationOptIn?: {
+    whatsapp?: boolean;
+    sms?: boolean;
+    phone?: string;
+    email?: string;
+  };
   messages: VisitorChatMessage[];
 }
 

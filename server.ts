@@ -1691,6 +1691,12 @@ YOUR PRIMARY GOALS:
    - Courteous, professional, warm, and articulate.
    - Reassure the visitor that their full query and this transcript are retained and that ${repName} will review it upon returning to the desk and can follow up directly.
    - Keep answers easy to read on mobile (short paragraphs or clear bullet points).
+
+CRITICAL FORMATTING RULES:
+- NEVER use markdown hash symbols (#, ##, ###) for headers or titles.
+- NEVER use asterisks (*) or double asterisks (**) for bolding, italics, or bullet points.
+- Use standard clean bullet characters (•) or numbered lists (1., 2.).
+- Never output programming syntax, markdown asterisks, or unformatted symbols.
 `;
 
       const formattedHistory: any[] = [];
@@ -1724,7 +1730,8 @@ YOUR PRIMARY GOALS:
         }
       });
 
-      const reply = response.text || generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+      const rawReply = response.text || generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+      const reply = sanitizeStudentFriendlyText(rawReply);
 
       return res.json({
         success: true,
@@ -1734,9 +1741,10 @@ YOUR PRIMARY GOALS:
     } catch (err: any) {
       console.warn("Visitor Rep Gemini API error:", err?.message || err);
       const fallbackReply = generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+      const reply = sanitizeStudentFriendlyText(fallbackReply);
       return res.json({
         success: true,
-        reply: fallbackReply,
+        reply,
         source: "representative_engine"
       });
     }
@@ -1812,6 +1820,76 @@ YOUR PRIMARY GOALS:
       visitorName,
       timestamp: now,
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Message Delivery & Acknowledgment Tracking Service
+  // ---------------------------------------------------------------------------
+  interface ConversationDeliveryState {
+    conversationId: string;
+    lastSeenByAdminAt?: string;
+    lastSeenByVisitorAt?: string;
+    seenByAdminName?: string;
+    acknowledgedMessageIds: string[];
+    deliveredMessageIds: string[];
+    updatedAt: number;
+  }
+  const deliveryStatusMap = new Map<string, ConversationDeliveryState>();
+
+  app.post("/api/chat-delivery/status", (req, res) => {
+    const { conversationId, role, name, lastSeenAt, messageIds, action } = req.body;
+    if (!conversationId) {
+      return res.status(400).json({ error: "conversationId required" });
+    }
+
+    const now = lastSeenAt || new Date().toISOString();
+    let convState = deliveryStatusMap.get(conversationId);
+    if (!convState) {
+      convState = {
+        conversationId,
+        acknowledgedMessageIds: [],
+        deliveredMessageIds: [],
+        updatedAt: Date.now(),
+      };
+      deliveryStatusMap.set(conversationId, convState);
+    }
+
+    convState.updatedAt = Date.now();
+
+    if (role === 'representative' || role === 'admin') {
+      convState.lastSeenByAdminAt = now;
+      if (name) convState.seenByAdminName = name;
+      if (Array.isArray(messageIds)) {
+        for (const mid of messageIds) {
+          if (!convState.acknowledgedMessageIds.includes(mid)) {
+            convState.acknowledgedMessageIds.push(mid);
+          }
+        }
+      }
+    } else if (role === 'visitor') {
+      convState.lastSeenByVisitorAt = now;
+    }
+
+    if (action === 'delivered' && Array.isArray(messageIds)) {
+      for (const mid of messageIds) {
+        if (!convState.deliveredMessageIds.includes(mid)) {
+          convState.deliveredMessageIds.push(mid);
+        }
+      }
+    }
+
+    return res.json({ success: true, deliveryState: convState });
+  });
+
+  app.get("/api/chat-delivery/status/:conversationId", (req, res) => {
+    const { conversationId } = req.params;
+    const convState = deliveryStatusMap.get(conversationId) || {
+      conversationId,
+      acknowledgedMessageIds: [],
+      deliveredMessageIds: [],
+      updatedAt: Date.now(),
+    };
+    return res.json({ success: true, deliveryState: convState });
   });
 
   // Vite middleware for development

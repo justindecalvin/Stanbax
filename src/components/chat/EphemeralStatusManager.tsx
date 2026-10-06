@@ -557,7 +557,7 @@ export const EphemeralStatusManager: React.FC<EphemeralStatusManagerProps> = ({
               {/* Status Text Input */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  Status Message / Caption *
+                  Status Message / Caption <span className="text-[11px] font-semibold text-neutral-500">(Required)</span>
                 </label>
                 <textarea
                   rows={3}

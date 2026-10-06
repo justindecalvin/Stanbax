@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSchool } from '../../context/SchoolContext';
 import { 
   MessageSquare, 
@@ -36,13 +36,24 @@ export const FloatingChatWidget: React.FC = () => {
     getChannelUnreadCount,
     getTotalUnreadCount,
     markChannelAsRead,
-    schoolRepConfig
+    schoolRepConfig,
+    typingMap
   } = useSchool();
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'class' | 'club' | 'direct' | 'announcement'>('all');
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+
+  // Auto-open chat if magic link or notification ref is present in URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('chat_ref') || params.get('open_chat')) {
+        setIsOpen(true);
+      }
+    } catch {}
+  }, []);
 
   // Demo fallback role switcher for public website evaluation
   const [demoRole, setDemoRole] = useState<'student' | 'tutor' | 'parent' | 'admin'>('student');
@@ -217,6 +228,7 @@ export const FloatingChatWidget: React.FC = () => {
   const isPortalView = activeSection.includes('portal');
   const isLandingPageOrGuest = !isPortalView || (!isStudentAuthenticated && !isTutorAuthenticated && !isParentAuthenticated && !isAdminAuthenticated);
   const bottomPositionClass = isPortalView ? 'bottom-6 right-6' : 'bottom-22 right-6';
+  const isAnyRepTyping = Object.values(typingMap).some(t => t.isRepTyping);
 
   return (
     <>
@@ -224,6 +236,25 @@ export const FloatingChatWidget: React.FC = () => {
       {/* FLOATING 💬 BUTTON AT LOWER RIGHT CORNER                                  */}
       {/* ========================================================================= */}
       <div className={`fixed ${bottomPositionClass} z-40 flex items-center`}>
+        {/* Real-time Representative Typing Callout Pill when chat is collapsed */}
+        {isLandingPageOrGuest && !isOpen && isAnyRepTyping && (
+          <div 
+            onClick={() => setIsOpen(true)}
+            className="absolute -top-11 right-0 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-2xl shadow-xl border border-blue-300 text-neutral-900 text-xs flex items-center gap-2 animate-bounce cursor-pointer whitespace-nowrap z-50"
+            title="Representative is typing - click to open"
+          >
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping shrink-0" />
+            <span className="font-extrabold text-[11px] text-blue-950">
+              {schoolRepConfig.repName} is typing a response...
+            </span>
+            <span className="inline-flex gap-0.5 items-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => {
