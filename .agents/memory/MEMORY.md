@@ -1,0 +1,1 @@
+- [Cloud authentication](cloud-auth.md) — Stanbax Schools requires Supabase password persistence and cloud verification across browsers and devices.
