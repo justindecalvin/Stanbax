@@ -51,7 +51,7 @@ import {
 } from './ChatLeadershipModals';
 
 interface SchoolChatSystemProps {
-  currentUserRole: 'student' | 'parent' | 'tutor' | 'admin';
+  currentUserRole: 'student' | 'parent' | 'tutor' | 'admin' | 'headmistress' | 'moderator';
   currentUserId: string;
   currentUserName: string;
   currentUserSubtext?: string;
@@ -165,7 +165,7 @@ export const SchoolChatSystem: React.FC<SchoolChatSystemProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Determine user permissions
-  const isAdmin = currentUserRole === 'admin';
+  const isAdmin = currentUserRole === 'admin' || currentUserRole === 'headmistress' || currentUserRole === 'moderator';
   const isTutor = currentUserRole === 'tutor';
   const isParent = currentUserRole === 'parent';
   const isStudent = currentUserRole === 'student';

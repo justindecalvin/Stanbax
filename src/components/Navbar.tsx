@@ -38,6 +38,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     schoolInfo,
     isAdminAuthenticated,
     isProprietressAuthenticated,
+    isHeadmistressAuthenticated,
+    isModeratorAuthenticated,
     isTutorAuthenticated,
     isStudentAuthenticated,
     isParentAuthenticated,
@@ -50,6 +52,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const getActivePortalTarget = (): PageSection => {
     if (isStudentAuthenticated) return 'student-portal';
     if (isAdminAuthenticated) return 'admin-portal';
+    if (isHeadmistressAuthenticated) return 'headmistress-portal';
+    if (isModeratorAuthenticated) return 'moderator-portal';
     if (isTutorAuthenticated) return 'tutor-portal';
     if (isParentAuthenticated) return 'parent-portal';
     if (isProprietressAuthenticated) return 'proprietress-portal';
@@ -62,13 +66,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       return `Scholar (${firstName})`;
     }
     if (isAdminAuthenticated) return 'Admin Console';
+    if (isHeadmistressAuthenticated) return 'Head Mistress';
+    if (isModeratorAuthenticated) return 'Moderator Desk';
     if (isTutorAuthenticated) return 'Faculty Portal';
     if (isParentAuthenticated) return 'Parent Portal';
     if (isProprietressAuthenticated) return 'Executive Portal';
     return 'Portals';
   };
 
-  const hasAnyAuth = isStudentAuthenticated || isAdminAuthenticated || isTutorAuthenticated || isParentAuthenticated || isProprietressAuthenticated;
+  const hasAnyAuth = isStudentAuthenticated || isAdminAuthenticated || isHeadmistressAuthenticated || isModeratorAuthenticated || isTutorAuthenticated || isParentAuthenticated || isProprietressAuthenticated;
 
   const navLinks: Array<{ label: string; section: PageSection }> = [
     { label: 'Home', section: 'home' },

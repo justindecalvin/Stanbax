@@ -31,6 +31,8 @@ import { ProprietressPage } from './components/ProprietressPage';
 import { PortalLoginPage } from './components/PortalLoginPage';
 import { AdminPortal } from './components/portals/AdminPortal';
 import { ProprietressPortal } from './components/portals/ProprietressPortal';
+import { HeadmistressPortal } from './components/portals/HeadmistressPortal';
+import { ModeratorPortal } from './components/portals/ModeratorPortal';
 import { TutorPortal } from './components/portals/TutorPortal';
 import { StudentPortal } from './components/portals/StudentPortal';
 import { ParentPortal } from './components/portals/ParentPortal';
@@ -98,6 +100,24 @@ const MainAppContent: React.FC = () => {
     );
   }
 
+  if (activeSection === 'headmistress-portal') {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] text-neutral-900 font-['Nunito',sans-serif]">
+        <HeadmistressPortal onBackToWebsite={() => handleNavigate('home')} />
+        <FloatingChatWidget />
+      </div>
+    );
+  }
+
+  if (activeSection === 'moderator-portal') {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] text-neutral-900 font-['Nunito',sans-serif]">
+        <ModeratorPortal onBackToWebsite={() => handleNavigate('home')} />
+        <FloatingChatWidget />
+      </div>
+    );
+  }
+
   if (activeSection === 'tutor-portal') {
     return (
       <div className="min-h-screen bg-[#FDFBF7] text-neutral-900 font-['Nunito',sans-serif]">
@@ -133,6 +153,8 @@ const MainAppContent: React.FC = () => {
           onLoginSuccess={(role) => {
             if (role === 'admin') setActiveSection('admin-portal');
             else if (role === 'proprietress') setActiveSection('proprietress-portal');
+            else if (role === 'headmistress') setActiveSection('headmistress-portal');
+            else if (role === 'moderator') setActiveSection('moderator-portal');
             else if (role === 'tutor') setActiveSection('tutor-portal');
             else if (role === 'student') setActiveSection('student-portal');
             else if (role === 'parent') setActiveSection('parent-portal');

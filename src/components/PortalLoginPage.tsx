@@ -40,9 +40,14 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
     setActiveSection,
     isAdminAuthenticated,
     isProprietressAuthenticated,
+    isHeadmistressAuthenticated,
+    isModeratorAuthenticated,
     isTutorAuthenticated,
     isStudentAuthenticated,
     isParentAuthenticated,
+    headmistressProfile,
+    moderators,
+    activeModeratorId,
     student,
     tutor,
     parents,
@@ -109,6 +114,8 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
         const roleGreetings: Record<UserRole, string> = {
           admin: 'Administrator credentials verified. Accessing Central Administration Console...',
           proprietress: 'Welcome, Proprietress. Opening Executive Governance Portal...',
+          headmistress: 'Welcome, Head Mistress. Opening Academic Leadership Portal...',
+          moderator: 'Moderator credentials verified. Opening Safety & Communications Console...',
           tutor: 'Faculty credentials verified. Entering Faculty Workspace...',
           student: res.isAlumni 
             ? 'Alumni record verified. Opening Alumni Scholar Archives...' 
@@ -248,7 +255,7 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
           {/* Form Body */}
           <div className="p-6 sm:p-8 space-y-5">
             {/* Active Session Detected (Auto-Resumption Banner) */}
-            {(isStudentAuthenticated || isAdminAuthenticated || isTutorAuthenticated || isParentAuthenticated || isProprietressAuthenticated) && (
+            {(isStudentAuthenticated || isAdminAuthenticated || isHeadmistressAuthenticated || isModeratorAuthenticated || isTutorAuthenticated || isParentAuthenticated || isProprietressAuthenticated) && (
               <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-900 to-indigo-950 text-white shadow-md border border-amber-400/50 space-y-3 animate-fade-in">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -265,6 +272,8 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
                     <strong className="text-amber-300">
                       {isStudentAuthenticated ? (student?.name || 'Scholar') :
                        isAdminAuthenticated ? 'Administrator' :
+                       isHeadmistressAuthenticated ? (headmistressProfile.name || 'Head Mistress') :
+                       isModeratorAuthenticated ? 'Community Moderator' :
                        isTutorAuthenticated ? (tutor?.name || 'Faculty Member') :
                        isProprietressAuthenticated ? 'Proprietress' :
                        (currentParent?.fullName || 'Parent / Guardian')}
@@ -282,6 +291,12 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
                       } else if (isAdminAuthenticated) {
                         setActiveSection('admin-portal');
                         onLoginSuccess?.('admin');
+                      } else if (isHeadmistressAuthenticated) {
+                        setActiveSection('headmistress-portal');
+                        onLoginSuccess?.('headmistress');
+                      } else if (isModeratorAuthenticated) {
+                        setActiveSection('moderator-portal');
+                        onLoginSuccess?.('moderator');
                       } else if (isTutorAuthenticated) {
                         setActiveSection('tutor-portal');
                         onLoginSuccess?.('tutor');

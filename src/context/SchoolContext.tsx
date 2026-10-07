@@ -85,8 +85,17 @@ import {
   VisitorChatMessage,
   VisitorConversation,
   ChatAppointment,
-  ChatTransferRecord
+  ChatTransferRecord,
+  HeadmistressProfile,
+  ModeratorProfile,
+  PrivilegeKey,
+  RolePrivilegeSettings
 } from '../types';
+import { 
+  DEFAULT_ROLE_PRIVILEGES, 
+  DEFAULT_HEADMISTRESS_PROFILE, 
+  DEFAULT_MODERATORS 
+} from '../data/rolePrivilegesData';
 import { cleanExpiredStatuses, create16HourStatus, INITIAL_EPHEMERAL_STATUSES } from '../data/defaultEphemeralStatuses';
 import { DEFAULT_GALLERY_PHOTOS } from '../data/defaultGalleryPhotos';
 import { DEFAULT_NEWS_ARTICLES } from '../data/defaultNewsArticles';
@@ -293,9 +302,11 @@ interface SchoolContextType {
   // 13. Authentication & Security (Universal Single Sign-On)
   isAdminAuthenticated: boolean;
   isProprietressAuthenticated: boolean;
+  isHeadmistressAuthenticated: boolean;
+  isModeratorAuthenticated: boolean;
   isStudentAuthenticated: boolean;
   isTutorAuthenticated: boolean;
-  authenticatedRole: 'admin' | 'proprietress' | 'tutor' | 'student' | 'parent' | null;
+  authenticatedRole: UserRole | null;
   universalLogin: (identifier: string, pass: string) => Promise<{
     success: boolean;
     role?: UserRole;
@@ -307,11 +318,33 @@ interface SchoolContextType {
   logoutAdmin: () => void;
   loginProprietress: (user: string, pass: string) => Promise<boolean>;
   logoutProprietress: () => void;
+  loginHeadmistress: (user: string, pass: string) => Promise<boolean>;
+  logoutHeadmistress: () => void;
+  loginModerator: (user: string, pass: string) => Promise<boolean>;
+  logoutModerator: () => void;
   loginStudent: (identifier: string, pin: string) => Promise<{ success: boolean; message?: string; student?: StudentProfile }>;
   logoutStudent: () => void;
   loginTutor: (identifier: string, pass: string) => Promise<{ success: boolean; message?: string; tutor?: TutorProfile }>;
   logoutTutor: () => void;
   logoutAll: () => void;
+
+  // Head Mistress Desk & Profiles
+  headmistressProfile: HeadmistressProfile;
+  updateHeadmistressProfile: (data: Partial<HeadmistressProfile>) => void;
+
+  // Moderators & Oversight
+  moderators: ModeratorProfile[];
+  addModerator: (data: Omit<ModeratorProfile, 'id'>) => ModeratorProfile;
+  updateModerator: (id: string, data: Partial<ModeratorProfile>) => void;
+  deleteModerator: (id: string) => void;
+  activeModeratorId: string;
+  setActiveModeratorId: (id: string) => void;
+
+  // Role Delegated Privileges
+  rolePrivileges: RolePrivilegeSettings;
+  updateRolePrivilege: (role: 'headmistress' | 'moderator' | 'tutor' | 'student' | 'parent', key: PrivilegeKey, granted: boolean) => void;
+  resetRolePrivileges: (role?: 'headmistress' | 'moderator' | 'tutor') => void;
+  hasPrivilege: (role: UserRole, key: PrivilegeKey) => boolean;
 
   // 13B. Alumni & Privileges Management
   toggleStudentAlumni: (studentId: string, isAlumni: boolean, graduationSession?: string) => void;
@@ -2808,10 +2841,154 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch { return DEFAULT_PARENTS[0]?.id || 'parent-1'; }
   });
 
-  const authenticatedRole: 'admin' | 'proprietress' | 'tutor' | 'student' | 'parent' | null = isAdminAuthenticated
+  // Head Mistress Desk & Credentials
+  const DEFAULT_HEADMISTRESS_PASSWORD = 'Headmistress2025!';
+  const [headmistressPassword, setHeadmistressPassword] = useState<string>(() => {
+    return localStorage.getItem('stanbax_headmistress_password') || DEFAULT_HEADMISTRESS_PASSWORD;
+  });
+  const [headmistressProfile, setHeadmistressProfile] = useState<HeadmistressProfile>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_headmistress_profile');
+      if (saved) return { ...DEFAULT_HEADMISTRESS_PROFILE, ...JSON.parse(saved) };
+    } catch {}
+    return DEFAULT_HEADMISTRESS_PROFILE;
+  });
+  const updateHeadmistressProfile = (info: Partial<HeadmistressProfile>) => {
+    setHeadmistressProfile(prev => {
+      const updated = { ...prev, ...info };
+      try { localStorage.setItem('stanbax_headmistress_profile', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+  const [isHeadmistressAuthenticated, setIsHeadmistressAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('stanbax_headmistress_auth') === 'true' || sessionStorage.getItem('stanbax_headmistress_auth') === 'true';
+    } catch { return false; }
+  });
+
+  // Moderator Desk & Credentials
+  const DEFAULT_MODERATOR_PASSWORD = 'Moderator2025!';
+  const [moderatorPassword, setModeratorPassword] = useState<string>(() => {
+    return localStorage.getItem('stanbax_moderator_password') || DEFAULT_MODERATOR_PASSWORD;
+  });
+  const [moderators, setModerators] = useState<ModeratorProfile[]>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_moderators');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_MODERATORS;
+  });
+  const addModerator = (data: Omit<ModeratorProfile, 'id'>): ModeratorProfile => {
+    const newMod: ModeratorProfile = {
+      id: `mod-${Date.now()}`,
+      ...data
+    };
+    setModerators(prev => {
+      const updated = [...prev, newMod];
+      try { localStorage.setItem('stanbax_moderators', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    return newMod;
+  };
+  const updateModerator = (id: string, data: Partial<ModeratorProfile>) => {
+    setModerators(prev => {
+      const updated = prev.map(m => m.id === id ? { ...m, ...data } : m);
+      try { localStorage.setItem('stanbax_moderators', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+  const deleteModerator = (id: string) => {
+    setModerators(prev => {
+      const updated = prev.filter(m => m.id !== id);
+      try { localStorage.setItem('stanbax_moderators', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+  const [isModeratorAuthenticated, setIsModeratorAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('stanbax_moderator_auth') === 'true' || sessionStorage.getItem('stanbax_moderator_auth') === 'true';
+    } catch { return false; }
+  });
+  const [activeModeratorId, setActiveModeratorId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('stanbax_moderator_id') || sessionStorage.getItem('stanbax_moderator_id') || 'mod-1';
+    } catch { return 'mod-1'; }
+  });
+
+  // Role Delegated Privileges System (Admin configurable)
+  const [rolePrivileges, setRolePrivileges] = useState<RolePrivilegeSettings>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_role_privileges');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          headmistress: { ...DEFAULT_ROLE_PRIVILEGES.headmistress, ...(parsed.headmistress || {}) },
+          moderator: { ...DEFAULT_ROLE_PRIVILEGES.moderator, ...(parsed.moderator || {}) },
+          tutor: { ...DEFAULT_ROLE_PRIVILEGES.tutor, ...(parsed.tutor || {}) },
+          student: { ...DEFAULT_ROLE_PRIVILEGES.student, ...(parsed.student || {}) },
+          parent: { ...DEFAULT_ROLE_PRIVILEGES.parent, ...(parsed.parent || {}) }
+        };
+      }
+    } catch {}
+    return DEFAULT_ROLE_PRIVILEGES;
+  });
+
+  const updateRolePrivilege = (
+    role: 'headmistress' | 'moderator' | 'tutor' | 'student' | 'parent',
+    key: PrivilegeKey,
+    granted: boolean
+  ) => {
+    setRolePrivileges(prev => {
+      const updated = {
+        ...prev,
+        [role]: {
+          ...prev[role],
+          [key]: granted
+        }
+      };
+      try {
+        localStorage.setItem('stanbax_role_privileges', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const resetRolePrivileges = (targetRole?: 'headmistress' | 'moderator' | 'tutor') => {
+    setRolePrivileges(prev => {
+      let updated: RolePrivilegeSettings;
+      if (targetRole) {
+        updated = {
+          ...prev,
+          [targetRole]: { ...DEFAULT_ROLE_PRIVILEGES[targetRole] }
+        };
+      } else {
+        updated = { ...DEFAULT_ROLE_PRIVILEGES };
+      }
+      try {
+        localStorage.setItem('stanbax_role_privileges', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const hasPrivilege = (role: UserRole, key: PrivilegeKey): boolean => {
+    if (role === 'admin' || role === 'proprietress') return true;
+    if (role === 'headmistress') return !!rolePrivileges.headmistress[key];
+    if (role === 'moderator') return !!rolePrivileges.moderator[key];
+    if (role === 'tutor') return !!rolePrivileges.tutor[key];
+    if (role === 'student') return !!rolePrivileges.student[key];
+    if (role === 'parent') return !!rolePrivileges.parent[key];
+    return false;
+  };
+
+  const authenticatedRole: UserRole | null = isAdminAuthenticated
     ? 'admin'
     : isProprietressAuthenticated
     ? 'proprietress'
+    : isHeadmistressAuthenticated
+    ? 'headmistress'
+    : isModeratorAuthenticated
+    ? 'moderator'
     : isTutorAuthenticated
     ? 'tutor'
     : isStudentAuthenticated
@@ -2819,6 +2996,52 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     : isParentAuthenticated
     ? 'parent'
     : null;
+
+  const clearOtherRoles = (keep: UserRole) => {
+    if (keep !== 'admin') {
+      setIsAdminAuthenticated(false);
+      localStorage.removeItem('stanbax_admin_auth');
+      sessionStorage.removeItem('stanbax_admin_auth');
+    }
+    if (keep !== 'proprietress') {
+      setIsProprietressAuthenticated(false);
+      localStorage.removeItem('stanbax_proprietress_auth');
+      sessionStorage.removeItem('stanbax_proprietress_auth');
+    }
+    if (keep !== 'headmistress') {
+      setIsHeadmistressAuthenticated(false);
+      localStorage.removeItem('stanbax_headmistress_auth');
+      sessionStorage.removeItem('stanbax_headmistress_auth');
+    }
+    if (keep !== 'moderator') {
+      setIsModeratorAuthenticated(false);
+      localStorage.removeItem('stanbax_moderator_auth');
+      localStorage.removeItem('stanbax_moderator_id');
+      sessionStorage.removeItem('stanbax_moderator_auth');
+      sessionStorage.removeItem('stanbax_moderator_id');
+    }
+    if (keep !== 'tutor') {
+      setIsTutorAuthenticated(false);
+      localStorage.removeItem('stanbax_tutor_auth');
+      localStorage.removeItem('stanbax_tutor_id');
+      sessionStorage.removeItem('stanbax_tutor_auth');
+      sessionStorage.removeItem('stanbax_tutor_id');
+    }
+    if (keep !== 'student') {
+      setIsStudentAuthenticated(false);
+      localStorage.removeItem('stanbax_student_auth');
+      localStorage.removeItem('stanbax_student_id');
+      sessionStorage.removeItem('stanbax_student_auth');
+      sessionStorage.removeItem('stanbax_student_id');
+    }
+    if (keep !== 'parent') {
+      setIsParentAuthenticated(false);
+      localStorage.removeItem('stanbax_parent_auth');
+      localStorage.removeItem('stanbax_parent_id');
+      sessionStorage.removeItem('stanbax_parent_auth');
+      sessionStorage.removeItem('stanbax_parent_id');
+    }
+  };
 
   // Universal Single Sign-On Gateway (Automatically detects user role & redirects)
   const universalLogin = async (identifier: string, pass: string): Promise<{
@@ -2844,9 +3067,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { success: false, message: res.message || 'Invalid credentials.' };
         }
         const role = res.role as UserRole;
+        clearOtherRoles(role);
         const sectionByRole: Record<UserRole, PageSection> = {
           admin: 'admin-portal',
           proprietress: 'proprietress-portal',
+          headmistress: 'headmistress-portal',
+          moderator: 'moderator-portal',
           tutor: 'tutor-portal',
           student: 'student-portal',
           parent: 'parent-portal',
@@ -2866,6 +3092,25 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sessionStorage.setItem('stanbax_proprietress_auth', 'true');
             localStorage.setItem('stanbax_active_section', 'proprietress-portal');
             sessionStorage.setItem('stanbax_active_section', 'proprietress-portal');
+            break;
+          case 'headmistress':
+            setIsHeadmistressAuthenticated(true);
+            localStorage.setItem('stanbax_headmistress_auth', 'true');
+            sessionStorage.setItem('stanbax_headmistress_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'headmistress-portal');
+            sessionStorage.setItem('stanbax_active_section', 'headmistress-portal');
+            break;
+          case 'moderator':
+            setIsModeratorAuthenticated(true);
+            if (res.refId) {
+              setActiveModeratorId(res.refId);
+              localStorage.setItem('stanbax_moderator_id', res.refId);
+              sessionStorage.setItem('stanbax_moderator_id', res.refId);
+            }
+            localStorage.setItem('stanbax_moderator_auth', 'true');
+            sessionStorage.setItem('stanbax_moderator_auth', 'true');
+            localStorage.setItem('stanbax_active_section', 'moderator-portal');
+            sessionStorage.setItem('stanbax_active_section', 'moderator-portal');
             break;
           case 'tutor':
             setIsTutorAuthenticated(true);
@@ -2919,6 +3164,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 1. Check Administrator
     if (cleanId === 'admin' || cleanId === 'administrator' || cleanId === 'admin@stanbaxschools.edu.ng' || cleanId === 'principal') {
       if (isAdminPasswordValid(cleanPass)) {
+        clearOtherRoles('admin');
         setIsAdminAuthenticated(true);
         localStorage.setItem('stanbax_admin_auth', 'true');
         sessionStorage.setItem('stanbax_admin_auth', 'true');
@@ -2931,8 +3177,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 2. Check Proprietress
-    if (cleanId === 'proprietress' || cleanId === 'headmistress' || cleanId === 'proprietress@stanbaxschools.edu.ng' || cleanId === 'mrs.bello') {
+    if (cleanId === 'proprietress' || cleanId === 'proprietress@stanbaxschools.edu.ng' || cleanId === 'mrs.bello' || cleanId === 'adebisi.bello') {
       if (isProprietressPasswordValid(cleanPass)) {
+        clearOtherRoles('proprietress');
         setIsProprietressAuthenticated(true);
         localStorage.setItem('stanbax_proprietress_auth', 'true');
         sessionStorage.setItem('stanbax_proprietress_auth', 'true');
@@ -2944,18 +3191,78 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // 3. Check Faculty Tutors
+    // 2B. Check Head Mistress (Executive Academic Head)
+    if (
+      cleanId === 'headmistress' || 
+      cleanId === 'head_mistress' || 
+      cleanId === 'headmistress@stanbaxschools.edu.ng' || 
+      cleanId === 'hm' || 
+      cleanId === 'mrs.adediran' || 
+      (headmistressProfile.email && cleanId === headmistressProfile.email.toLowerCase())
+    ) {
+      if (cleanPass === headmistressPassword) {
+        clearOtherRoles('headmistress');
+        setIsHeadmistressAuthenticated(true);
+        localStorage.setItem('stanbax_headmistress_auth', 'true');
+        sessionStorage.setItem('stanbax_headmistress_auth', 'true');
+        localStorage.setItem('stanbax_active_section', 'headmistress-portal');
+        sessionStorage.setItem('stanbax_active_section', 'headmistress-portal');
+        return { success: true, role: 'headmistress', targetSection: 'headmistress-portal' };
+      } else {
+        return { success: false, message: 'Incorrect Head Mistress password.' };
+      }
+    }
+
+    // 2C. Check Moderator
+    const matchedMod = moderators.find(m => 
+      m.email.toLowerCase() === cleanId || 
+      m.id.toLowerCase() === cleanId || 
+      m.name.toLowerCase() === cleanId ||
+      cleanId === 'moderator' ||
+      cleanId === 'mod' ||
+      cleanId === 'chatmod' ||
+      cleanId === 'moderator@stanbaxschools.edu.ng'
+    );
+    if (matchedMod || cleanId === 'moderator' || cleanId === 'mod' || cleanId === 'chatmod' || cleanId === 'moderator@stanbaxschools.edu.ng') {
+      if (cleanPass === moderatorPassword) {
+        clearOtherRoles('moderator');
+        setIsModeratorAuthenticated(true);
+        const modId = matchedMod ? matchedMod.id : 'mod-1';
+        setActiveModeratorId(modId);
+        localStorage.setItem('stanbax_moderator_auth', 'true');
+        localStorage.setItem('stanbax_moderator_id', modId);
+        sessionStorage.setItem('stanbax_moderator_auth', 'true');
+        sessionStorage.setItem('stanbax_moderator_id', modId);
+        localStorage.setItem('stanbax_active_section', 'moderator-portal');
+        sessionStorage.setItem('stanbax_active_section', 'moderator-portal');
+        return { success: true, role: 'moderator', targetSection: 'moderator-portal' };
+      } else {
+        return { success: false, message: 'Incorrect moderator password.' };
+      }
+    }
+
+    // 3. Check Faculty Tutors (including elevated scholar tutors)
+    const cleanIdNoSpaces = cleanId.replace(/\s+/g, '');
     const matchedTutor = tutors.find(t => {
       const emailNorm = t.email.toLowerCase();
       const staffIdNorm = (t.staffId || '').toLowerCase();
       const idNorm = t.id.toLowerCase();
       const nameNorm = t.name.toLowerCase();
-      return emailNorm === cleanId || staffIdNorm === cleanId || idNorm === cleanId || nameNorm === cleanId;
+      const originIdNorm = (t.studentOriginId || '').toLowerCase();
+      const originRegNorm = (t.studentRegNumber || '').toLowerCase().replace(/\s+/g, '');
+      return (
+        emailNorm === cleanId || 
+        staffIdNorm === cleanId || 
+        idNorm === cleanId || 
+        nameNorm === cleanId ||
+        (t.isUpgraded && (originIdNorm === cleanId || originRegNorm === cleanIdNoSpaces))
+      );
     });
 
     if (matchedTutor) {
       const expectedPass = matchedTutor.password || 'stanbax2025';
       if (cleanPass === expectedPass) {
+        clearOtherRoles('tutor');
         setIsTutorAuthenticated(true);
         setActiveTutorId(matchedTutor.id);
         localStorage.setItem('stanbax_tutor_auth', 'true');
@@ -2967,6 +3274,27 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return { success: true, role: 'tutor', targetSection: 'tutor-portal' };
       } else {
         return { success: false, message: 'Incorrect faculty tutor password.' };
+      }
+    }
+
+    // Check if user entered credentials of an upgraded scholar — route strictly to Faculty Tutor!
+    const upgradedStudentAttempt = students.find(s => s.isUpgradedTutor && (
+      s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
+      (s.email && s.email.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces)
+    ));
+    if (upgradedStudentAttempt) {
+      const elevatedTutor = tutors.find(t => t.studentOriginId === upgradedStudentAttempt.id || t.studentRegNumber === upgradedStudentAttempt.regNumber);
+      if (elevatedTutor && cleanPass === (elevatedTutor.password || 'stanbax2025')) {
+        clearOtherRoles('tutor');
+        setIsTutorAuthenticated(true);
+        setActiveTutorId(elevatedTutor.id);
+        localStorage.setItem('stanbax_tutor_auth', 'true');
+        localStorage.setItem('stanbax_tutor_id', elevatedTutor.id);
+        sessionStorage.setItem('stanbax_tutor_auth', 'true');
+        sessionStorage.setItem('stanbax_tutor_id', elevatedTutor.id);
+        localStorage.setItem('stanbax_active_section', 'tutor-portal');
+        sessionStorage.setItem('stanbax_active_section', 'tutor-portal');
+        return { success: true, role: 'tutor', targetSection: 'tutor-portal' };
       }
     }
 
@@ -2988,6 +3316,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (matchedParent) {
       const expectedPass = matchedParent.password || 'parent2025';
       if (cleanPass === expectedPass) {
+        clearOtherRoles('parent');
         setIsParentAuthenticated(true);
         setActiveParentId(matchedParent.id);
         localStorage.setItem('stanbax_parent_auth', 'true');
@@ -3002,9 +3331,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // 5. Check Students / Scholars / Alumni
-    const cleanIdNoSpaces = cleanId.replace(/\s+/g, '');
+    // 5. Check Students / Scholars / Alumni (EXCLUDING UPGRADED SCHOLARS who are now faculty tutors)
     const matchedStudent = students.find(s => {
+      if (s.isUpgradedTutor) return false; // Upgraded scholars can only log in as Tutor!
       const regNorm = s.regNumber.toLowerCase().replace(/\s+/g, '');
       const idNorm = s.id.toLowerCase().replace(/\s+/g, '');
       const emailNorm = (s.email || '').toLowerCase().replace(/\s+/g, '');
@@ -3015,6 +3344,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (matchedStudent) {
       const expectedPass = matchedStudent.password || 'stanbax2025';
       if (cleanPass === expectedPass) {
+        clearOtherRoles('student');
         setIsStudentAuthenticated(true);
         setActiveStudentId(matchedStudent.id);
         localStorage.setItem('stanbax_student_auth', 'true');
@@ -3114,6 +3444,110 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setActiveSection('home');
   };
 
+  const loginHeadmistress = async (user: string, pass: string): Promise<boolean> => {
+    const trimmedUser = user.trim().toLowerCase();
+    const isUserValid = 
+      trimmedUser === 'headmistress' || 
+      trimmedUser === 'head_mistress' || 
+      trimmedUser === 'headmistress@stanbaxschools.edu.ng' || 
+      trimmedUser === 'hm' || 
+      trimmedUser === 'mrs.adediran' || 
+      (headmistressProfile.email && trimmedUser === headmistressProfile.email.toLowerCase());
+    if (!isUserValid) return false;
+    if (isRemoteEnabled()) {
+      const res = await remoteVerifyLogin(trimmedUser, pass);
+      if (!res.unreachable) {
+        if (!res.ok || res.role !== 'headmistress') return false;
+        clearOtherRoles('headmistress');
+        setIsHeadmistressAuthenticated(true);
+        localStorage.setItem('stanbax_headmistress_auth', 'true');
+        sessionStorage.setItem('stanbax_headmistress_auth', 'true');
+        localStorage.setItem('stanbax_active_section', 'headmistress-portal');
+        sessionStorage.setItem('stanbax_active_section', 'headmistress-portal');
+        await completeRemoteLogin(res.token!, 'headmistress-portal');
+        return true;
+      }
+    }
+    if (pass === headmistressPassword) {
+      clearOtherRoles('headmistress');
+      setIsHeadmistressAuthenticated(true);
+      localStorage.setItem('stanbax_headmistress_auth', 'true');
+      sessionStorage.setItem('stanbax_headmistress_auth', 'true');
+      localStorage.setItem('stanbax_active_section', 'headmistress-portal');
+      sessionStorage.setItem('stanbax_active_section', 'headmistress-portal');
+      return true;
+    }
+    return false;
+  };
+
+  const logoutHeadmistress = () => {
+    setIsHeadmistressAuthenticated(false);
+    localStorage.removeItem('stanbax_headmistress_auth');
+    sessionStorage.removeItem('stanbax_headmistress_auth');
+    localStorage.removeItem('stanbax_active_section');
+    sessionStorage.removeItem('stanbax_active_section');
+    setActiveSection('home');
+  };
+
+  const loginModerator = async (user: string, pass: string): Promise<boolean> => {
+    const trimmedUser = user.trim().toLowerCase();
+    const matchedMod = moderators.find(m => 
+      m.email.toLowerCase() === trimmedUser || 
+      m.id.toLowerCase() === trimmedUser || 
+      m.name.toLowerCase() === trimmedUser ||
+      trimmedUser === 'moderator' ||
+      trimmedUser === 'mod' ||
+      trimmedUser === 'chatmod' ||
+      trimmedUser === 'moderator@stanbaxschools.edu.ng'
+    );
+    if (!matchedMod && trimmedUser !== 'moderator' && trimmedUser !== 'mod' && trimmedUser !== 'chatmod' && trimmedUser !== 'moderator@stanbaxschools.edu.ng') {
+      return false;
+    }
+    if (isRemoteEnabled()) {
+      const res = await remoteVerifyLogin(trimmedUser, pass);
+      if (!res.unreachable) {
+        if (!res.ok || res.role !== 'moderator') return false;
+        clearOtherRoles('moderator');
+        setIsModeratorAuthenticated(true);
+        const modId = res.refId || (matchedMod ? matchedMod.id : 'mod-1');
+        setActiveModeratorId(modId);
+        localStorage.setItem('stanbax_moderator_auth', 'true');
+        localStorage.setItem('stanbax_moderator_id', modId);
+        sessionStorage.setItem('stanbax_moderator_auth', 'true');
+        sessionStorage.setItem('stanbax_moderator_id', modId);
+        localStorage.setItem('stanbax_active_section', 'moderator-portal');
+        sessionStorage.setItem('stanbax_active_section', 'moderator-portal');
+        await completeRemoteLogin(res.token!, 'moderator-portal');
+        return true;
+      }
+    }
+    if (pass === moderatorPassword) {
+      clearOtherRoles('moderator');
+      setIsModeratorAuthenticated(true);
+      const modId = matchedMod ? matchedMod.id : 'mod-1';
+      setActiveModeratorId(modId);
+      localStorage.setItem('stanbax_moderator_auth', 'true');
+      localStorage.setItem('stanbax_moderator_id', modId);
+      sessionStorage.setItem('stanbax_moderator_auth', 'true');
+      sessionStorage.setItem('stanbax_moderator_id', modId);
+      localStorage.setItem('stanbax_active_section', 'moderator-portal');
+      sessionStorage.setItem('stanbax_active_section', 'moderator-portal');
+      return true;
+    }
+    return false;
+  };
+
+  const logoutModerator = () => {
+    setIsModeratorAuthenticated(false);
+    localStorage.removeItem('stanbax_moderator_auth');
+    localStorage.removeItem('stanbax_moderator_id');
+    sessionStorage.removeItem('stanbax_moderator_auth');
+    sessionStorage.removeItem('stanbax_moderator_id');
+    localStorage.removeItem('stanbax_active_section');
+    sessionStorage.removeItem('stanbax_active_section');
+    setActiveSection('home');
+  };
+
   const loginTutor = async (identifier: string, pass: string): Promise<{ success: boolean; message?: string; tutor?: TutorProfile }> => {
     const cleanId = identifier.trim().toLowerCase();
     if (!cleanId) {
@@ -3137,6 +3571,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { success: false, message: res.message || 'Incorrect staff credentials. Please check your password.' };
         }
         const remoteTutor = res.refId ? tutors.find(t => t.id === res.refId) : matchedTutor;
+        clearOtherRoles('tutor');
         setIsTutorAuthenticated(true);
         const tutorId = res.refId || (matchedTutor ? matchedTutor.id : 'tut-1');
         setActiveTutorId(tutorId);
@@ -3163,6 +3598,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: 'Incorrect staff credentials. Please check your password.' };
     }
 
+    clearOtherRoles('tutor');
     setIsTutorAuthenticated(true);
     setActiveTutorId(matchedTutor.id);
     localStorage.setItem('stanbax_tutor_auth', 'true');
@@ -3201,6 +3637,13 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return regNorm === cleanId || idNorm === cleanId || nameNorm.includes(cleanId);
     });
 
+    if (matchedStudent && matchedStudent.isUpgradedTutor) {
+      return {
+        success: false,
+        message: 'This scholar account has been elevated to Faculty Tutor. Please sign in via the Faculty Tutor portal using your Staff credentials.'
+      };
+    }
+
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(identifier.trim(), pin);
       if (!res.unreachable) {
@@ -3212,6 +3655,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { success: false, message: 'No active student record matches that Registration Number. Please verify registration slip.' };
         }
         const sid = res.refId || matchedStudent!.id;
+        clearOtherRoles('student');
         setIsStudentAuthenticated(true);
         setActiveStudentId(sid);
         localStorage.setItem('stanbax_student_auth', 'true');
@@ -3237,6 +3681,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: 'Incorrect scholar portal password.' };
     }
 
+    clearOtherRoles('student');
     setIsStudentAuthenticated(true);
     setActiveStudentId(matchedStudent.id);
     localStorage.setItem('stanbax_student_auth', 'true');
@@ -3343,6 +3788,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     void remoteLogout();
     logoutAdmin();
     logoutProprietress();
+    logoutHeadmistress();
+    logoutModerator();
     logoutTutor();
     logoutStudent();
     logoutParent();
@@ -3388,6 +3835,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isUpgraded: true,
       profileCompleted: false, // User must complete necessary details on portal entry!
       studentOriginId: targetStudent.id,
+      studentRegNumber: targetStudent.regNumber,
       assignedClasses: [targetStudent.grade],
       assignedSubjects: ['Mathematics', 'Basic Science & Technology']
     };
@@ -3403,6 +3851,19 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateStudent(studentId, {
       isUpgradedTutor: true
     });
+
+    // If this student was currently authenticated, clear their student session
+    // to prevent conflicting dual-role session state (so they log in strictly as Tutor)
+    if (activeStudentId === studentId || isStudentAuthenticated) {
+      setIsStudentAuthenticated(false);
+      setActiveStudentId('');
+      try {
+        localStorage.removeItem('stanbax_student_auth');
+        localStorage.removeItem('stanbax_student_id');
+        sessionStorage.removeItem('stanbax_student_auth');
+        sessionStorage.removeItem('stanbax_student_id');
+      } catch {}
+    }
 
     return {
       success: true,
@@ -3552,25 +4013,44 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: true, message: 'Proprietress password has been reset successfully!', role: 'proprietress' };
     }
 
-    // Tutors
+    // Headmistress
+    if (cleanId === 'headmistress' || cleanId === 'headmistress@stanbaxschools.edu.ng' || (headmistressProfile.email && cleanId === headmistressProfile.email.toLowerCase())) {
+      setHeadmistressPassword(newPassword);
+      localStorage.setItem('stanbax_headmistress_password', newPassword);
+      return { success: true, message: 'Head Mistress password has been reset successfully!', role: 'headmistress' };
+    }
+
+    // Moderator
+    const matchedMod = moderators.find(m => m.email.toLowerCase() === cleanId || m.id.toLowerCase() === cleanId);
+    if (matchedMod || cleanId === 'moderator' || cleanId === 'moderator@stanbaxschools.edu.ng') {
+      setModeratorPassword(newPassword);
+      localStorage.setItem('stanbax_moderator_password', newPassword);
+      return { success: true, message: 'Moderator password has been reset successfully!', role: 'moderator' };
+    }
+
+    // Tutors (including upgraded scholars)
+    const cleanIdNoSpaces = cleanId.replace(/\s+/g, '');
     const targetTutor = tutors.find(t => 
       t.email.toLowerCase() === cleanId || 
       (t.staffId && t.staffId.toLowerCase() === cleanId) || 
       t.id.toLowerCase() === cleanId ||
-      t.name.toLowerCase() === cleanId
+      t.name.toLowerCase() === cleanId ||
+      (t.studentOriginId && t.studentOriginId.toLowerCase() === cleanId) ||
+      (t.studentRegNumber && t.studentRegNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces)
     );
     if (targetTutor) {
       updateTutor(targetTutor.id, { password: newPassword });
       return { success: true, message: `Password reset for tutor ${targetTutor.name}!`, role: 'tutor' };
     }
 
-    // Students
-    const cleanIdNoSpaces = cleanId.replace(/\s+/g, '');
+    // Students (excluding upgraded scholars who are now faculty tutors)
     const targetStudent = students.find(s => 
-      s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
-      (s.email && s.email.toLowerCase() === cleanId) ||
-      s.id.toLowerCase() === cleanId ||
-      s.name.toLowerCase() === cleanId
+      !s.isUpgradedTutor && (
+        s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
+        (s.email && s.email.toLowerCase() === cleanId) ||
+        s.id.toLowerCase() === cleanId ||
+        s.name.toLowerCase() === cleanId
+      )
     );
     if (targetStudent) {
       updateStudent(targetStudent.id, { password: newPassword });
@@ -3592,11 +4072,44 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!cleanId) return { exists: false, hasQuestion: false, message: 'Please enter an institutional identifier.' };
 
     const cleanIdNoSpaces = cleanId.replace(/\s+/g, '');
+
+    // Check Headmistress
+    if (cleanId === 'headmistress' || cleanId === 'headmistress@stanbaxschools.edu.ng' || (headmistressProfile.email && cleanId === headmistressProfile.email.toLowerCase())) {
+      return { exists: true, hasQuestion: false, name: headmistressProfile.name, role: 'headmistress' };
+    }
+
+    // Check Moderator
+    const matchedMod = moderators.find(m => m.email.toLowerCase() === cleanId || m.id.toLowerCase() === cleanId);
+    if (matchedMod || cleanId === 'moderator' || cleanId === 'moderator@stanbaxschools.edu.ng') {
+      return { exists: true, hasQuestion: false, name: matchedMod ? matchedMod.name : 'Community Moderator', role: 'moderator' };
+    }
+
+    // Check Tutors (including elevated scholars)
+    const targetTutor = tutors.find(t => 
+      t.email.toLowerCase() === cleanId || 
+      (t.staffId && t.staffId.toLowerCase() === cleanId) || 
+      t.id.toLowerCase() === cleanId ||
+      t.name.toLowerCase() === cleanId ||
+      (t.studentOriginId && t.studentOriginId.toLowerCase() === cleanId) ||
+      (t.studentRegNumber && t.studentRegNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces)
+    );
+    if (targetTutor) {
+      return {
+        exists: true,
+        hasQuestion: false,
+        name: targetTutor.name,
+        role: 'tutor'
+      };
+    }
+
+    // Check Students (excluding upgraded scholars)
     const targetStudent = students.find(s => 
-      s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
-      (s.email && s.email.toLowerCase() === cleanId) ||
-      s.id.toLowerCase() === cleanId ||
-      s.name.toLowerCase() === cleanId
+      !s.isUpgradedTutor && (
+        s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
+        (s.email && s.email.toLowerCase() === cleanId) ||
+        s.id.toLowerCase() === cleanId ||
+        s.name.toLowerCase() === cleanId
+      )
     );
 
     if (targetStudent) {
@@ -3606,22 +4119,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         securityQuestion: targetStudent.securityQuestion,
         name: targetStudent.name,
         role: 'student'
-      };
-    }
-
-    // Tutors
-    const targetTutor = tutors.find(t => 
-      t.email.toLowerCase() === cleanId || 
-      (t.staffId && t.staffId.toLowerCase() === cleanId) || 
-      t.id.toLowerCase() === cleanId ||
-      t.name.toLowerCase() === cleanId
-    );
-    if (targetTutor) {
-      return {
-        exists: true,
-        hasQuestion: false,
-        name: targetTutor.name,
-        role: 'tutor'
       };
     }
 
@@ -3657,10 +4154,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const cleanIdNoSpaces = cleanId.replace(/\s+/g, '');
     const targetStudent = students.find(s => 
-      s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
-      (s.email && s.email.toLowerCase() === cleanId) ||
-      s.id.toLowerCase() === cleanId ||
-      s.name.toLowerCase() === cleanId
+      !s.isUpgradedTutor && (
+        s.regNumber.toLowerCase().replace(/\s+/g, '') === cleanIdNoSpaces ||
+        (s.email && s.email.toLowerCase() === cleanId) ||
+        s.id.toLowerCase() === cleanId ||
+        s.name.toLowerCase() === cleanId
+      )
     );
 
     if (targetStudent) {
@@ -3746,13 +4245,43 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       lastUpdated: 'Executive Master'
     });
 
-    // Tutors
+    // Head Mistress
+    list.push({
+      id: 'usr-headmistress',
+      name: headmistressProfile.name || 'Mrs. Funmilayo Adediran',
+      role: 'headmistress',
+      roleLabel: 'Head Mistress / Academic Principal',
+      primaryIdentifier: 'headmistress',
+      email: headmistressProfile.email || 'headmistress@stanbaxschools.edu.ng',
+      password: headmistressPassword || 'Headmistress2025!',
+      status: 'Active',
+      departmentOrGrade: 'Academic Leadership',
+      lastUpdated: 'Executive Master'
+    });
+
+    // Moderators
+    moderators.forEach(m => {
+      list.push({
+        id: `usr-${m.id}`,
+        name: m.name,
+        role: 'moderator',
+        roleLabel: 'Community Moderator',
+        primaryIdentifier: m.email.split('@')[0] || 'moderator',
+        email: m.email,
+        password: moderatorPassword || 'Moderator2025!',
+        status: m.status,
+        departmentOrGrade: m.roleTitle,
+        lastUpdated: 'Communications Registry'
+      });
+    });
+
+    // Tutors (including elevated scholar tutors)
     tutors.forEach(t => {
       list.push({
         id: t.id,
         name: t.name,
         role: 'tutor',
-        roleLabel: 'Faculty Tutor',
+        roleLabel: t.isUpgraded ? 'Associate Faculty (Scholar Tutor)' : 'Faculty Tutor',
         primaryIdentifier: t.staffId || t.email,
         email: t.email,
         password: t.password || 'stanbax2025',
@@ -3764,8 +4293,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
-    // Students & Alumni
-    students.forEach(s => {
+    // Students & Alumni (Exclude Upgraded Tutors who are now in the Faculty Tutor registry)
+    students.filter(s => !s.isUpgradedTutor).forEach(s => {
       list.push({
         id: s.id,
         name: s.name,
@@ -3777,7 +4306,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         securityQuestion: s.securityQuestion,
         securityAnswer: s.securityAnswer,
         passportPhoto: s.passportPhoto,
-        status: s.isAlumni ? 'Alumni' : s.isUpgradedTutor ? 'Upgraded Tutor' : 'Active',
+        status: s.isAlumni ? 'Alumni' : 'Active',
         departmentOrGrade: s.grade,
         lastUpdated: s.isAlumni ? (s.graduationSession || 'Graduated Alumni') : 'Active Enrollment'
       });
@@ -6770,6 +7299,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         submitInquiry,
         isAdminAuthenticated,
         isProprietressAuthenticated,
+        isHeadmistressAuthenticated,
+        isModeratorAuthenticated,
         isStudentAuthenticated,
         isTutorAuthenticated,
         authenticatedRole,
@@ -6778,6 +7309,10 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         logoutAdmin,
         loginProprietress,
         logoutProprietress,
+        loginHeadmistress,
+        logoutHeadmistress,
+        loginModerator,
+        logoutModerator,
         loginStudent,
         logoutStudent,
         loginTutor,
@@ -7011,7 +7546,20 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         typingMap,
         bookChatAppointment,
         transferConversationDepartment,
-        updateVisitorNotificationOptIn
+        updateVisitorNotificationOptIn,
+        // Headmistress, Moderator & RBAC Privileges System
+        headmistressProfile,
+        updateHeadmistressProfile,
+        moderators,
+        addModerator,
+        updateModerator,
+        deleteModerator,
+        activeModeratorId,
+        setActiveModeratorId,
+        rolePrivileges,
+        updateRolePrivilege,
+        resetRolePrivileges,
+        hasPrivilege
       }}
     >
       {children}

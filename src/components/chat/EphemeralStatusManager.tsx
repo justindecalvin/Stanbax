@@ -19,7 +19,7 @@ import {
 interface EphemeralStatusManagerProps {
   currentUserId: string;
   currentUserName: string;
-  currentUserRole: 'student' | 'parent' | 'tutor' | 'admin';
+  currentUserRole: 'student' | 'parent' | 'tutor' | 'admin' | 'headmistress' | 'moderator';
   currentUserSubtext?: string;
   currentUserBadge?: string;
 }

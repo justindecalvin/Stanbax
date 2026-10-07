@@ -47,6 +47,7 @@ import { AdminCalvinTokensTab } from './admin/AdminCalvinTokensTab';
 import { AdminSchemeOfWorkTab } from './admin/AdminSchemeOfWorkTab';
 import { AdminCampusGalleryTab } from './admin/AdminCampusGalleryTab';
 import { AdminVisitorInquiriesSubTab } from './admin/AdminVisitorInquiriesSubTab';
+import { AdminRolePrivilegesTab } from './admin/AdminRolePrivilegesTab';
 import { SchoolChatSystem } from '../chat/SchoolChatSystem';
 import { SchoolPrefectBadgesModal } from '../chat/ChatLeadershipModals';
 import { NetlifyCloudSyncModal } from './admin/NetlifyCloudSyncModal';
@@ -59,6 +60,7 @@ interface AdminPortalProps {
 
 type AdminTab = 
   | 'overview'
+  | 'roles_privileges'
   | 'chat'
   | 'calvin_tokens'
   | 'scheme_of_work'
@@ -110,6 +112,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite }) => 
 
   const menuItems: Array<{ id: AdminTab; label: string; icon: React.ElementType; badge?: string | number }> = [
     { id: 'overview', label: 'Dashboard Overview', icon: Layers },
+    { id: 'roles_privileges', label: 'Role Privileges & Delegations', icon: ShieldCheck, badge: 'Roles & Access' },
     { 
       id: 'chat', 
       label: 'Community & Representative Chat', 
@@ -511,6 +514,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite }) => 
             </div>
           )}
 
+          {activeTab === 'roles_privileges' && <AdminRolePrivilegesTab />}
           {activeTab === 'calvin_tokens' && <AdminCalvinTokensTab />}
           {activeTab === 'scheme_of_work' && <AdminSchemeOfWorkTab />}
           {activeTab === 'calendar' && <AdminSchoolCalendarTab />}

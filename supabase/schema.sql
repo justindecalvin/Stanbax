@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
   user_id        UUID, -- Bound to auth.users if Supabase Auth is enabled
   session_ref_id TEXT, -- e.g. 'admin', 'tut-1', 'stu-4', 'parent-2'
   identifier     TEXT NOT NULL,
-  role           TEXT NOT NULL CHECK (role IN ('admin', 'proprietress', 'tutor', 'student', 'parent')),
+  role           TEXT NOT NULL CHECK (role IN ('admin', 'proprietress', 'headmistress', 'moderator', 'tutor', 'student', 'parent')),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.credentials (
   identifier    TEXT NOT NULL UNIQUE,          -- Canonical login id (lowercase)
   aliases       TEXT[] NOT NULL DEFAULT '{}',  -- Other accepted identifiers (phones, reg numbers, names)
   password_hash TEXT NOT NULL,
-  role          TEXT NOT NULL CHECK (role IN ('admin', 'proprietress', 'tutor', 'student', 'parent')),
+  role          TEXT NOT NULL CHECK (role IN ('admin', 'proprietress', 'headmistress', 'moderator', 'tutor', 'student', 'parent')),
   ref_id        TEXT,                          -- App id: stu-1, tut-3, parent-5, admin
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.credentials (
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.sessions (
   token      TEXT PRIMARY KEY,
-  role       TEXT NOT NULL CHECK (role IN ('admin', 'proprietress', 'tutor', 'student', 'parent')),
+  role       TEXT NOT NULL CHECK (role IN ('admin', 'proprietress', 'headmistress', 'moderator', 'tutor', 'student', 'parent')),
   ref_id     TEXT,
   user_id    UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -185,7 +185,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public, extensions, pg_temp AS $$
-  SELECT public.is_admin() OR (public.session_role() IN ('admin', 'proprietress', 'tutor'));
+  SELECT public.is_admin() OR (public.session_role() IN ('admin', 'proprietress', 'headmistress', 'moderator', 'tutor'));
 $$;
 
 CREATE OR REPLACE FUNCTION public.can_write_state_key(p_key TEXT)
@@ -205,6 +205,46 @@ BEGIN
   -- Admin & Proprietress have full write authority across all keys
   IF v_role IN ('admin', 'proprietress') THEN
     RETURN true;
+  END IF;
+
+  -- Head Mistress: Academic Executive leadership authority across academic and school operations
+  IF v_role = 'headmistress' THEN
+    RETURN p_key IN (
+      'stanbax_students',
+      'stanbax_tutors',
+      'stanbax_classes',
+      'stanbax_subjects',
+      'stanbax_lesson_notes',
+      'stanbax_cbt_exams',
+      'stanbax_cbt_attempts',
+      'stanbax_attendance_records',
+      'stanbax_homeworks',
+      'stanbax_weekly_timetables',
+      'stanbax_grades',
+      'stanbax_terminal_collations',
+      'stanbax_chat_messages',
+      'stanbax_visitor_conversations',
+      'stanbax_parent_consultations',
+      'stanbax_ephemeral_statuses',
+      'stanbax_notices',
+      'stanbax_school_calendar',
+      'stanbax_term_resumption_config',
+      'stanbax_gallery_photos',
+      'stanbax_directives'
+    );
+  END IF;
+
+  -- Moderator: Community communications, chat channels, visitor inquiries, news and media oversight
+  IF v_role = 'moderator' THEN
+    RETURN p_key IN (
+      'stanbax_chat_messages',
+      'stanbax_visitor_conversations',
+      'stanbax_parent_consultations',
+      'stanbax_ephemeral_statuses',
+      'stanbax_notices',
+      'stanbax_gallery_photos',
+      'stanbax_school_rep_config'
+    );
   END IF;
 
   -- Faculty / Tutors: classroom, lesson notes, attendance, exams, homeworks, timetables
@@ -452,6 +492,48 @@ BEGIN
 END;
 $$;
 
+-- Elevate a scholar to faculty tutor, reassigning credential role strictly to tutor
+CREATE OR REPLACE FUNCTION public.upgrade_student_to_tutor(
+  p_student_id TEXT,
+  p_tutor_id TEXT,
+  p_staff_id TEXT,
+  p_tutor_email TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions, pg_temp AS $$
+DECLARE
+  v_actor_ref TEXT := public.session_ref_id();
+  v_actor_role TEXT := public.session_role();
+BEGIN
+  IF NOT public.is_admin() THEN
+    RETURN jsonb_build_object('ok', false, 'message', 'Access denied: Only administrators may upgrade scholars to tutors.');
+  END IF;
+
+  -- Reassign credentials from student to faculty tutor so scholar login is converted
+  UPDATE public.credentials
+  SET role = 'tutor',
+      ref_id = p_tutor_id,
+      aliases = array_append(aliases, lower(p_staff_id)),
+      updated_at = now()
+  WHERE ref_id = p_student_id;
+
+  -- Synchronize isolated user_roles table
+  UPDATE public.user_roles
+  SET role = 'tutor',
+      session_ref_id = p_tutor_id,
+      updated_at = now()
+  WHERE session_ref_id = p_student_id;
+
+  INSERT INTO public.audit_logs (action, entity, actor_ref, actor_role, details)
+  VALUES ('SCHOLAR_ELEVATED_TO_TUTOR', 'credentials', v_actor_ref, v_actor_role,
+          jsonb_build_object('student_id', p_student_id, 'tutor_id', p_tutor_id, 'staff_id', p_staff_id));
+
+  RETURN jsonb_build_object('ok', true, 'message', 'Scholar elevated to Faculty Tutor and role converted to tutor.');
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.put_states(p_items JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -637,12 +719,17 @@ INSERT INTO public.school_state (key, is_public) VALUES
   ('stanbax_news_articles', true),
   ('stanbax_popup_notice', true),
   ('stanbax_navbar_content', true),
-  ('stanbax_footer_content', true)
+  ('stanbax_footer_content', true),
+  ('stanbax_role_privileges', true),
+  ('stanbax_headmistress_profile', true),
+  ('stanbax_moderators', true)
 ON CONFLICT (key) DO UPDATE SET is_public = EXCLUDED.is_public;
 
 INSERT INTO public.credentials (identifier, aliases, password_hash, role, ref_id) VALUES
   ('admin',        ARRAY['administrator','principal','stanbax','admin@stanbaxschools.edu.ng'], crypt('Justin2000.', gen_salt('bf')), 'admin', 'admin'),
-  ('proprietress', ARRAY['headmistress','mrs.bello','proprietress@stanbaxschools.edu.ng'],      crypt('Proprietress2025!', gen_salt('bf')), 'proprietress', 'proprietress'),
+  ('proprietress', ARRAY['mrs.bello','proprietress@stanbaxschools.edu.ng','adebisi.bello'],     crypt('Proprietress2025!', gen_salt('bf')), 'proprietress', 'proprietress'),
+  ('headmistress', ARRAY['head_mistress','hm@stanbaxschools.edu.ng','headmistress@stanbaxschools.edu.ng','mrs.adediran'], crypt('Headmistress2025!', gen_salt('bf')), 'headmistress', 'headmistress'),
+  ('moderator',    ARRAY['mod','moderator@stanbaxschools.edu.ng','chatmod','kehinde.badmus'],                             crypt('Moderator2025!', gen_salt('bf')),    'moderator',    'mod-1'),
 
   ('olumide.ogunleye@stanbaxschools.edu.ng',  ARRAY['stx/fac/001','tut-1','mr. olumide ogunleye'],   crypt('stanbax2025', gen_salt('bf')), 'tutor', 'tut-1'),
   ('folake.adeyemi@stanbaxschools.edu.ng',    ARRAY['stx/fac/002','tut-2','mrs. folake adeyemi'],    crypt('stanbax2025', gen_salt('bf')), 'tutor', 'tut-2'),

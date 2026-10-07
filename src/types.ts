@@ -15,11 +15,73 @@ export type PageSection =
   | 'portal-login'
   | 'admin-portal'
   | 'proprietress-portal'
+  | 'headmistress-portal'
+  | 'moderator-portal'
   | 'tutor-portal'
   | 'student-portal'
   | 'parent-portal';
 
-export type UserRole = 'admin' | 'proprietress' | 'tutor' | 'student' | 'parent';
+export type UserRole = 
+  | 'admin' 
+  | 'proprietress' 
+  | 'headmistress' 
+  | 'moderator' 
+  | 'tutor' 
+  | 'student' 
+  | 'parent';
+
+export type PrivilegeKey =
+  | 'manage_students'
+  | 'manage_faculty'
+  | 'academic_curriculum'
+  | 'terminal_results'
+  | 'exam_cbt_studio'
+  | 'community_chat_moderation'
+  | 'visitor_inquiries'
+  | 'school_calendar'
+  | 'broadcasts_notices'
+  | 'financial_records'
+  | 'credentials_vault'
+  | 'campus_gallery'
+  | 'prefect_badges';
+
+export interface PrivilegeDefinition {
+  key: PrivilegeKey;
+  label: string;
+  category: 'Academics & Faculty' | 'Communications & Chat' | 'Operations & Administration' | 'Security & Finance';
+  description: string;
+}
+
+export type RolePrivilegesMap = Record<PrivilegeKey, boolean>;
+
+export interface RolePrivilegeSettings {
+  headmistress: RolePrivilegesMap;
+  moderator: RolePrivilegesMap;
+  tutor: RolePrivilegesMap;
+  student: RolePrivilegesMap;
+  parent: RolePrivilegesMap;
+}
+
+export interface HeadmistressProfile {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  qualification: string;
+  welcomeMessage: string;
+  signature?: string;
+  photoUrl?: string;
+}
+
+export interface ModeratorProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  roleTitle: string;
+  assignedSections: string[];
+  status: 'Active' | 'Suspended';
+}
 
 export type GalleryCategory = 'all' | 'facilities' | 'events' | 'sports' | 'academics' | 'arts';
 
@@ -204,6 +266,7 @@ export interface StudentProfile {
   securityAnswer?: string;
   isAlumni?: boolean;
   isUpgradedTutor?: boolean;
+  transitionedToTutorId?: string;
   graduationSession?: string;
   attendancePercent: number;
   attendanceDays?: number;
@@ -342,6 +405,7 @@ export interface TutorProfile {
   appointedDate?: string;
   appointedBy?: string;
   studentOriginId?: string;
+  studentRegNumber?: string;
 }
 
 export interface FacultyMember {
@@ -1000,7 +1064,7 @@ export interface SchoolChatMessage {
   channelId: string;
   senderId: string;
   senderName: string;
-  senderRole: 'student' | 'parent' | 'tutor' | 'admin';
+  senderRole: UserRole;
   senderAvatar?: string;
   senderSubtext?: string; // e.g. "SSS 2 Scholar", "JETS Patron", "Parent of Tiwa", "School Admin"
   senderBadge?: string; // e.g. "⭐ Class Prefect", "👑 President", "🏅 Head Girl"
@@ -1039,7 +1103,7 @@ export interface UserEphemeralStatus {
   id: string;
   userId: string;
   userName: string;
-  userRole: 'student' | 'tutor' | 'admin' | 'parent';
+  userRole: UserRole;
   userAvatar?: string;
   userGradeOrTitle?: string;
   userBadge?: string;
