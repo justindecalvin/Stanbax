@@ -599,7 +599,7 @@ interface SchoolContextType {
   sendVisitorMessage: (
     visitorId: string, 
     message: string, 
-    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any },
+    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any; language?: string },
     attachment?: { url: string; name: string; type: 'image' | 'document' | 'audio'; audioDuration?: number }
   ) => Promise<VisitorChatMessage | null>;
   replyAsRepresentative: (
@@ -6017,6 +6017,43 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return {};
   });
 
+  // Cross-tab synchronization for visitor conversations and real-time typing indicators
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'stanbax_visitor_conversations') {
+        try {
+          const val = localStorage.getItem('stanbax_visitor_conversations');
+          if (val) setVisitorConversations(JSON.parse(val));
+        } catch {}
+      }
+      if (e.key === 'stanbax_chat_typing') {
+        try {
+          const val = localStorage.getItem('stanbax_chat_typing');
+          if (val) setTypingMap(JSON.parse(val));
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+    return () => window.removeEventListener('storage', handleStorageEvent);
+  }, []);
+
+  const safeSaveConversations = (conversations: VisitorConversation[]) => {
+    try {
+      localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(conversations));
+      window.dispatchEvent(new Event('storage'));
+    } catch (err: any) {
+      if (err?.name === 'QuotaExceededError' || err?.code === 22) {
+        console.warn('LocalStorage quota limit reached, trimming legacy caches...');
+        try {
+          localStorage.removeItem('stanbax_chat_drafts');
+          localStorage.removeItem('stanbax_cached_audio');
+          localStorage.setItem('stanbax_visitor_conversations', JSON.stringify(conversations));
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+      }
+    }
+  };
+
   const setChatTyping = async (visitorId: string, sender: 'representative' | 'visitor', isTyping: boolean, senderName?: string) => {
     if (!visitorId) return;
     setTypingMap(prev => {
@@ -6084,7 +6121,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const sendVisitorMessage = async (
     visitorId: string,
     messageText: string,
-    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any },
+    visitorInfo?: { name?: string; phone?: string; email?: string; category?: any; language?: string },
     attachment?: { url: string; name: string; type: 'image' | 'document' | 'audio'; audioDuration?: number }
   ): Promise<VisitorChatMessage | null> => {
     const text = messageText.trim();
@@ -6171,6 +6208,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             repName: schoolRepConfig.repName,
             repTitle: schoolRepConfig.repTitle,
             repRole: schoolRepConfig.activeRole,
+            language: visitorInfo?.language || 'en',
             chatHistory: historyPayload
           })
         });

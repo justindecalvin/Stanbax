@@ -9,13 +9,16 @@ import {
   FileText, 
   ExternalLink,
   Tag,
-  BookMarked
+  BookMarked,
+  Sparkles
 } from '../../RealIcons';
 import { LibraryBookItem } from '../../../types';
+import { DigitalLibraryLounge } from '../DigitalLibraryLounge';
 
 export const StudentLibraryTab: React.FC = () => {
   const { student, libraryBooks, incrementBookDownload } = useSchool();
 
+  const [activeLibraryView, setActiveLibraryView] = useState<'lounge' | 'catalog'>('lounge');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -39,10 +42,16 @@ export const StudentLibraryTab: React.FC = () => {
   const handleDownload = (book: LibraryBookItem) => {
     incrementBookDownload(book.id);
 
-    // If external url, open in new tab
+    // If external url, trigger direct download link safely
     const targetUrl = book.fileUrl || book.downloadUrl;
     if (targetUrl && targetUrl.startsWith('http')) {
-      window.open(targetUrl, '_blank');
+      const a = document.createElement('a');
+      a.href = targetUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } else {
       // Simulate file download
       const desc = book.description || book.summary || '';
@@ -81,7 +90,40 @@ export const StudentLibraryTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Success Alert */}
+      {/* View Switcher: Interactive Lounge vs Downloadable Catalog */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveLibraryView('lounge')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+            activeLibraryView === 'lounge'
+              ? 'bg-blue-900 text-amber-300 shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>Interactive Reading Lounge & E-Books</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveLibraryView('catalog')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+            activeLibraryView === 'catalog'
+              ? 'bg-blue-900 text-amber-300 shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+          <span>Syllabus Textbooks & Compendiums ({libraryBooks.length})</span>
+        </button>
+      </div>
+
+      {activeLibraryView === 'lounge' ? (
+        <DigitalLibraryLounge />
+      ) : (
+        <>
+          {/* Success Alert */}
       {downloadSuccessNotice && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -186,6 +228,8 @@ export const StudentLibraryTab: React.FC = () => {
           </div>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 };

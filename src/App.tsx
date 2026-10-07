@@ -10,6 +10,8 @@ import { FacultyTeam } from './components/FacultyTeam';
 import { AcademicCalendarSection } from './components/AcademicCalendarSection';
 import { NoticeBoard } from './components/NoticeBoard';
 import { Testimonials } from './components/Testimonials';
+import { StudentAchievements } from './components/StudentAchievements';
+import { HouseChampionshipLeaderboard } from './components/HouseChampionshipLeaderboard';
 import { ContactSection } from './components/ContactSection';
 import { Footer } from './components/Footer';
 import { WhatsAppButton } from './components/WhatsAppButton';
@@ -227,6 +229,14 @@ const MainAppContent: React.FC = () => {
 
         <div id="testimonials">
           <Testimonials />
+        </div>
+
+        <div id="achievements">
+          <StudentAchievements />
+        </div>
+
+        <div id="house-championship">
+          <HouseChampionshipLeaderboard />
         </div>
 
         <div id="contact">

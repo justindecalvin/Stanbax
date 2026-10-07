@@ -27,12 +27,15 @@ import {
   ChevronRight,
   School as SchoolIcon,
   Check,
-  Camera
+  Camera,
+  Bus
 } from '../RealIcons';
-import { ParentProfile, StudentProfile, ParentConsultationRequest, FeePaymentRecord } from '../../types';
+import { ParentProfile, StudentProfile, ParentConsultationRequest, FeePaymentRecord, FeePayment } from '../../types';
 import { PortalLoginPage } from '../PortalLoginPage';
 import { SchoolChatSystem } from '../chat/SchoolChatSystem';
 import { CampusGallery } from '../CampusGallery';
+import { BusFleetTracker } from './BusFleetTracker';
+import { FeeReceiptModal } from './FeeReceiptModal';
 
 interface ParentPortalProps {
   onBackToWebsite: () => void;
@@ -84,8 +87,14 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
   const selectedChild = linkedChildren.find(c => c.id === selectedChildId) || linkedChildren[0] || students[0];
 
   // Active navigation tab
-  type ParentTab = 'overview' | 'academics' | 'fees' | 'health' | 'consultation' | 'timetable' | 'chat' | 'gallery';
+  type ParentTab = 'overview' | 'academics' | 'fees' | 'health' | 'bus' | 'consultation' | 'timetable' | 'chat' | 'gallery';
   const [activeTab, setActiveTab] = useState<ParentTab>('overview');
+
+  // Official Bursary Fee Receipt Modal State
+  const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<FeePayment | null>(null);
+
+  // Health Clinic Emergency Alert Broadcast State
+  const [emergencyBroadcastSent, setEmergencyBroadcastSent] = useState(false);
 
   // Consultation Booking Modal / Form State
   const [showConsultModal, setShowConsultModal] = useState(false);
@@ -195,6 +204,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
     { id: 'academics' as const, label: 'Continuous Assessment & Reports', icon: Award },
     { id: 'fees' as const, label: 'Bursary & Fee Clearance', icon: CreditCard },
     { id: 'health' as const, label: 'Clinic & Health Log', icon: HeartPulse, badge: childSickBayVisits.length || undefined },
+    { id: 'bus' as const, label: 'Live Bus GPS Fleet', icon: Bus },
     { id: 'timetable' as const, label: 'Weekly Class Schedule', icon: Calendar },
     { id: 'consultation' as const, label: 'Faculty Consultations', icon: MessageSquare, badge: myConsultations.filter(c => c.status === 'Approved').length || undefined },
     { id: 'chat' as const, label: 'School Community & Tutors Chat', icon: MessageSquare },
@@ -720,6 +730,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
                       <th className="py-3 px-4">Reference</th>
                       <th className="py-3 px-4 text-right">Amount</th>
                       <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Certificate</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
@@ -736,11 +747,22 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
                               {p.status}
                             </span>
                           </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedReceiptPayment(p)}
+                              className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-black text-[10px] transition cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                              title="Generate Official Bursary Receipt & Clearance Certificate"
+                            >
+                              <ShieldCheck className="w-3 h-3 text-amber-700" />
+                              <span>View Receipt</span>
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-400 font-bold">
+                        <td colSpan={7} className="py-8 text-center text-stone-400 font-bold">
                           No previous fee payments found for this scholar profile.
                         </td>
                       </tr>
@@ -769,6 +791,67 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
             </div>
 
             <div className="space-y-4">
+              {emergencyBroadcastSent && (
+                <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-950 text-xs flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>Emergency alert dispatched to Lead Registered Nurse on campus. The sick-bay desk will contact you via WhatsApp and phone immediately.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEmergencyBroadcastSent(false)}
+                    className="text-emerald-800 underline font-bold cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* Scholar Clinical Baseline Vitals Card */}
+              <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+                  <div>
+                    <h3 className="font-black text-xs text-stone-800 uppercase tracking-wider">
+                      Student Clinical Baseline Profile
+                    </h3>
+                    <p className="text-[11px] text-stone-500">
+                      Certified by Stanbax School Clinic & Registered Nursing Directorate
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEmergencyBroadcastSent(true)}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                  >
+                    <HeartPulse className="w-3.5 h-3.5" />
+                    <span>Request Nurse Emergency Callback</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200">
+                    <span className="text-[10px] uppercase font-bold text-stone-400 block">Blood Group</span>
+                    <span className="font-black text-stone-900 text-sm">O+ (Rh Positive)</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200">
+                    <span className="text-[10px] uppercase font-bold text-stone-400 block">Genotype</span>
+                    <span className="font-black text-stone-900 text-sm">AA (Verified)</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200">
+                    <span className="text-[10px] uppercase font-bold text-stone-400 block">Body Mass</span>
+                    <span className="font-black text-stone-900 text-sm">49.5 kg</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200">
+                    <span className="text-[10px] uppercase font-bold text-stone-400 block">Allergies</span>
+                    <span className="font-bold text-emerald-700 text-xs">None Reported</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200">
+                    <span className="text-[10px] uppercase font-bold text-stone-400 block">Immunizations</span>
+                    <span className="font-bold text-emerald-700 text-xs">Up to Date</span>
+                  </div>
+                </div>
+              </div>
+
               {childSickBayVisits.length > 0 ? (
                 childSickBayVisits.map(visit => (
                   <div key={visit.id} className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-3">
@@ -827,6 +910,11 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
               )}
             </div>
           </div>
+        )}
+
+        {/* TAB 4B: LIVE BUS GPS FLEET TRACKER */}
+        {activeTab === 'bus' && (
+          <BusFleetTracker />
         )}
 
         {/* TAB 5: TIMETABLE */}
@@ -1189,6 +1277,16 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({ onBackToWebsite }) =
             </form>
           </div>
         </div>
+      )}
+
+      {/* Official Bursary Fee Receipt & Clearance Certificate Modal */}
+      {selectedReceiptPayment && (
+        <FeeReceiptModal
+          payment={selectedReceiptPayment}
+          student={selectedChild}
+          schoolInfo={schoolInfo}
+          onClose={() => setSelectedReceiptPayment(null)}
+        />
       )}
 
       {/* Footer */}

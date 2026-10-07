@@ -29,9 +29,15 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  MessageSquare
+  MessageSquare,
+  Layers,
+  Send,
+  Sparkles
 } from '../RealIcons';
 import { SchoolChatSystem } from '../chat/SchoolChatSystem';
+import { DualCurriculumMatrix } from './DualCurriculumMatrix';
+import { ReportCardWhatsAppDispatcher } from './ReportCardWhatsAppDispatcher';
+import { VirtualScienceLab } from './VirtualScienceLab';
 
 interface TutorPortalProps {
   onBackToWebsite: () => void;
@@ -77,7 +83,7 @@ export const TutorPortal: React.FC<TutorPortalProps> = ({ onBackToWebsite }) => 
     );
   }
 
-  const [tutorTab, setTutorTab] = useState<'gradebook' | 'ai_exam_creator' | 'lesson_notes' | 'homework' | 'attendance' | 'timetable' | 'consultations' | 'staff_profile' | 'chat'>('gradebook');
+  const [tutorTab, setTutorTab] = useState<'gradebook' | 'ai_exam_creator' | 'lesson_notes' | 'dual_curriculum' | 'whatsapp_reports' | 'sciencelab' | 'homework' | 'attendance' | 'timetable' | 'consultations' | 'staff_profile' | 'chat'>('gradebook');
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // Active enrolled scholars in class (ex-students / alumni no longer show as part of the class)
@@ -439,6 +445,30 @@ export const TutorPortal: React.FC<TutorPortalProps> = ({ onBackToWebsite }) => 
       badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
       icon: BookOpen,
       description: 'Send study notes in text, PDF, Word docx, or diagrams to scholars'
+    },
+    { 
+      id: 'dual_curriculum' as const, 
+      label: 'Dual Curriculum Alignment Matrix', 
+      badge: 'NERDC & Cambridge',
+      badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      icon: Layers,
+      description: 'Crosswalk mapping Nigerian NERDC standards to Cambridge IGCSE and Checkpoint learning outcomes'
+    },
+    { 
+      id: 'whatsapp_reports' as const, 
+      label: 'WhatsApp Report Dispatcher', 
+      badge: 'Parent WhatsApp',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      icon: Send,
+      description: 'Instant dispatch of official terminal reports and CA dossiers directly to parent WhatsApp'
+    },
+    { 
+      id: 'sciencelab' as const, 
+      label: 'Virtual Science Lab Simulator', 
+      badge: 'Practical Labs',
+      badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+      icon: Sparkles,
+      description: 'Interactive STEM laboratory for Chemistry Titration, Physics Pendulum & Biology Photosynthesis'
     },
     { 
       id: 'homework' as const, 
@@ -1260,6 +1290,21 @@ export const TutorPortal: React.FC<TutorPortalProps> = ({ onBackToWebsite }) => 
         {/* TAB: LESSON NOTES & MATERIALS */}
         {tutorTab === 'lesson_notes' && (
           <TutorLessonNotesTab />
+        )}
+
+        {/* TAB: DUAL CURRICULUM SCHEME-OF-WORK MATRIX */}
+        {tutorTab === 'dual_curriculum' && (
+          <DualCurriculumMatrix />
+        )}
+
+        {/* TAB: WHATSAPP REPORT DISPATCHER */}
+        {tutorTab === 'whatsapp_reports' && (
+          <ReportCardWhatsAppDispatcher />
+        )}
+
+        {/* TAB: VIRTUAL SCIENCE PRACTICAL SIMULATOR */}
+        {tutorTab === 'sciencelab' && (
+          <VirtualScienceLab />
         )}
 
         {/* TAB 2: ASSIGN HOMEWORK */}

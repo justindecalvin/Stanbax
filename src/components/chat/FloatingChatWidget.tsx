@@ -37,13 +37,32 @@ export const FloatingChatWidget: React.FC = () => {
     getTotalUnreadCount,
     markChannelAsRead,
     schoolRepConfig,
-    typingMap
+    typingMap,
+    visitorConversations
   } = useSchool();
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'class' | 'club' | 'direct' | 'announcement'>('all');
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+
+  // Compute unread visitor replies count for visitors on public pages
+  const visitorUnreadCount = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_visitor_identity');
+      if (saved) {
+        const idObj = JSON.parse(saved);
+        if (idObj?.visitorId) {
+          const conv = visitorConversations.find(c => c.visitorId === idObj.visitorId);
+          if (conv) {
+            const lastSeen = conv.lastSeenByVisitorAt ? new Date(conv.lastSeenByVisitorAt).getTime() : 0;
+            return conv.messages.filter(m => (m.sender === 'representative' || m.sender === 'calvin_ai') && new Date(m.timestamp).getTime() > lastSeen).length;
+          }
+        }
+      }
+    } catch {}
+    return 0;
+  }, [visitorConversations]);
 
   // Auto-open chat if magic link or notification ref is present in URL
   useEffect(() => {
@@ -289,6 +308,13 @@ export const FloatingChatWidget: React.FC = () => {
               title={schoolRepConfig.isAvailable ? 'Representative Online' : 'Calvin AI Virtual Rep Active'}
             >
               <span className={`w-1.5 h-1.5 rounded-full bg-white ${schoolRepConfig.isAvailable ? 'animate-ping' : ''}`} />
+            </span>
+          )}
+
+          {/* Visitor unread replies badge on landing page / guest view */}
+          {isLandingPageOrGuest && visitorUnreadCount > 0 && !isOpen && (
+            <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse">
+              {visitorUnreadCount > 9 ? '9+' : visitorUnreadCount}
             </span>
           )}
 

@@ -33,7 +33,13 @@ import {
   Play,
   CheckSquare,
   FileSpreadsheet,
-  FileCheck
+  FileCheck,
+  Lock,
+  Sparkles,
+  RefreshCw,
+  ArrowRight,
+  ArrowLeft,
+  BookmarkCheck
 } from '../../RealIcons';
 
 interface ObjectiveItem {
@@ -67,6 +73,7 @@ interface GeneratedAssessment {
   subject: string;
   term: string;
   assessmentType: string;
+  difficulty?: string;
   timeAllowed: string;
   instructions: string;
   isEarlyYearsPictorial: boolean;
@@ -80,8 +87,78 @@ interface GeneratedAssessment {
   theory: TheoryItem[];
   paperSavingText: string;
   markingGuide: string;
+  markingAidText?: string;
   schemeSource?: string;
 }
+
+export interface DifficultyTierOption {
+  id: 'easy' | 'standard' | 'advanced' | 'olympiad';
+  value: string;
+  label: string;
+  shortLabel: string;
+  description: string;
+  tag: string;
+  icon: React.FC<{ className?: string }>;
+  activeClass: string;
+  badgeClass: string;
+  iconActiveClass: string;
+  tagActiveClass: string;
+}
+
+export const DIFFICULTY_TIERS: DifficultyTierOption[] = [
+  {
+    id: 'easy',
+    value: 'Foundational / Easy (Remedial & Concept Recall)',
+    label: 'Foundational / Easy',
+    shortLabel: 'Foundational',
+    description: 'Direct conceptual recall, core definitions & gentle introductory questions for baseline mastery',
+    tag: 'Remedial / Pass Priority',
+    icon: CheckCircle2,
+    activeClass: 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/30 font-bold shadow-xs',
+    badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    iconActiveClass: 'text-emerald-600',
+    tagActiveClass: 'text-emerald-700'
+  },
+  {
+    id: 'standard',
+    value: 'Standard (WAEC / BECE Standard)',
+    label: 'Standard Syllabus',
+    shortLabel: 'Standard WAEC',
+    description: 'Official syllabus standard with balanced recall, comprehension & authentic examination distribution',
+    tag: 'Official Syllabus Standard',
+    icon: Award,
+    activeClass: 'border-blue-600 bg-blue-50 text-blue-950 ring-2 ring-blue-600/30 font-bold shadow-xs',
+    badgeClass: 'bg-blue-100 text-blue-900 border-blue-300',
+    iconActiveClass: 'text-blue-600',
+    tagActiveClass: 'text-blue-700'
+  },
+  {
+    id: 'advanced',
+    value: 'Advanced (Distinction & Problem-Solving)',
+    label: 'Advanced Distinction',
+    shortLabel: 'Distinction A1',
+    description: 'Higher-order Bloom analysis, multi-step problem solving & analytical distractors that eliminate guessing',
+    tag: 'Distinction A1 Standard',
+    icon: Zap,
+    activeClass: 'border-purple-600 bg-purple-50 text-purple-950 ring-2 ring-purple-600/30 font-bold shadow-xs',
+    badgeClass: 'bg-purple-100 text-purple-900 border-purple-300',
+    iconActiveClass: 'text-purple-600',
+    tagActiveClass: 'text-purple-700'
+  },
+  {
+    id: 'olympiad',
+    value: 'Olympiad / Challenge (Competition Rigor)',
+    label: 'Olympiad Challenge',
+    shortLabel: 'Olympiad',
+    description: 'National competition rigor with non-routine problem solving, proofs, and scholarship decathlon challenges',
+    tag: 'National Decathlon Tier',
+    icon: Target,
+    activeClass: 'border-rose-600 bg-rose-50 text-rose-950 ring-2 ring-rose-600/30 font-bold shadow-xs',
+    badgeClass: 'bg-rose-100 text-rose-900 border-rose-300',
+    iconActiveClass: 'text-rose-600',
+    tagActiveClass: 'text-rose-700'
+  }
+];
 
 // Clean raw markdown asterisks so words aren't bolded with literal '*' characters on screen or in print
 export function cleanAsterisks(str: string): string {
@@ -94,6 +171,55 @@ export function cleanAsterisks(str: string): string {
   res = res.replace(/\*([^*]+)\*/g, '$1');
   res = res.replace(/\*/g, '');
   return res;
+}
+
+// Generate separate, complete Examiner Marking Aid & Solution Key
+export function formatMarkingAidText(assessment: GeneratedAssessment): string {
+  const objKeys = assessment.objectives.map((o) => {
+    const correctVal = o.correctOption === 'A' ? o.optionA : o.correctOption === 'B' ? o.optionB : o.correctOption === 'C' ? o.optionC : (o.optionD || '');
+    return `QUESTION ${o.id}: [Option ${o.correctOption}] ${correctVal}\n   Examiner Rationale / Syllabus Concept: ${o.visualHint || 'Correct curriculum benchmark. Distractors represent common misconceptions.'}`;
+  }).join('\n\n');
+
+  const theoryScheme = assessment.theory && assessment.theory.length > 0
+    ? assessment.theory.map(t => {
+        return `QUESTION ${t.questionNumber} (Maximum: ${t.maxScore} Marks):\nQuestion Prompt: ${t.questionText}\n\nModel Solution & Step-by-Step Scoring Breakdown:\n${t.sampleAnswer || 'Model answer solution.'}\n\nSub-part Rubrics:\n${(t.subParts || []).map(sp => `• ${sp}`).join('\n')}\n\nMarking Rules:\n• M1 (Method Mark): 50% for correct mathematical or scientific formulation.\n• A1 (Accuracy Mark): 40% for accurate calculations and deductions.\n• B1 (Independent Mark): 10% for final answer, neatness and standard S.I. units.`;
+      }).join('\n\n--------------------------------------------------------------------------------\n')
+    : 'No theory questions in this assessment paper.';
+
+  return [
+    `================================================================================`,
+    `                      STANBAX SCHOOLS IBADAN, OYO STATE                        `,
+    `          EXAMINATIONS & ASSESSMENT DIRECTORATE • TEACHER MARKING AID           `,
+    `      CONFIDENTIAL SCORING GUIDE • FOR EXAMINERS & SCORING MASTERS ONLY         `,
+    `================================================================================`,
+    `ACADEMIC SESSION: 2025/2026                 TERM: ${assessment.term.toUpperCase()}`,
+    `ASSESSMENT: ${assessment.assessmentType.toUpperCase()} MARKING AID`,
+    `SUBJECT: ${assessment.subject.toUpperCase()}        CLASS: ${assessment.classLevel.toUpperCase()}`,
+    `DIFFICULTY RIGOR: ${(assessment.difficulty || 'STANDARD').toUpperCase()}    TOTAL ALLOCATION: 100 MARKS`,
+    `DATE GENERATED: ${assessment.timestamp}`,
+    `================================================================================\n`,
+    `CAUTION: THIS DOCUMENT CONTAINS CONFIDENTIAL SOLUTIONS AND SCORING RUBRICS.`,
+    `STRICTLY RESTRICTED TO CERTIFIED EXAMINERS. DO NOT CIRCULATE TO CANDIDATES.\n`,
+    `--------------------------------------------------------------------------------`,
+    `SECTION A: OBJECTIVE ANSWER KEY & RATIONALE (${assessment.objectives.length} MARKS)`,
+    `--------------------------------------------------------------------------------\n`,
+    `RAPID SCORING GRID:`,
+    assessment.objectives.map((o, idx) => `Q${o.id}:${o.correctOption}${((idx + 1) % 10 === 0) ? '\n' : '  '}`).join(''),
+    `\n\nDETAILED QUESTION-BY-QUESTION SOLUTIONS & EXPLANATIONS:`,
+    `--------------------------------------------------------------------------------`,
+    objKeys,
+    `\n\n================================================================================`,
+    `SECTION B: THEORY & ESSAY MARKING SCHEME & STEP-BY-STEP RUBRICS`,
+    `================================================================================\n`,
+    theoryScheme,
+    `\n\n================================================================================`,
+    `OFFICIAL EXAMINER MARKING POLICIES & MODERATION STANDARDS:`,
+    `1. Consequential Marking: Follow through errors in arithmetic if candidate's method is sound.`,
+    `2. Units & Notation: Deduct 1 mark maximum per question for missing or incorrect units.`,
+    `3. Spelling of Technical Terms: Deduct 0.5 mark for misspelled biological/chemical taxa.`,
+    `4. Moderation Protocol: 10% of graded scripts will undergo spot moderation by the Academic Director.`,
+    `================================================================================`
+  ].join('\n');
 }
 
 export const AiExamCreatorTab: React.FC = () => {
@@ -128,7 +254,7 @@ export const AiExamCreatorTab: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<'waec' | 'jamb' | 'bece' | 'midterm' | 'topical' | 'early_years' | 'custom'>('waec');
   const [assessmentType, setAssessmentType] = useState<string>('Terminal Examination');
   const [customTopics, setCustomTopics] = useState<string>('');
-  const [difficulty, setDifficulty] = useState<string>('Standard WAEC / BECE Standard');
+  const [difficulty, setDifficulty] = useState<string>('Standard (WAEC / BECE Standard)');
   const [additionalInstructions, setAdditionalInstructions] = useState<string>('');
 
   // Scheme of Work Scope Selection
@@ -156,6 +282,11 @@ export const AiExamCreatorTab: React.FC = () => {
   const [currentAssessment, setCurrentAssessment] = useState<GeneratedAssessment | null>(null);
   const [activeView, setActiveView] = useState<'paper_saving' | 'cards' | 'marking_guide' | 'cbt_preview' | 'saved_vault'>('paper_saving');
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedMarkingAid, setCopiedMarkingAid] = useState<boolean>(false);
+  const [markingAidSubTab, setMarkingAidSubTab] = useState<'grid' | 'detailed' | 'rubric' | 'policy'>('grid');
+  const [markingOptionFilter, setMarkingOptionFilter] = useState<'all' | 'A' | 'B' | 'C' | 'D'>('all');
+  const [vaultFilter, setVaultFilter] = useState<'all' | 'exams' | 'marking_aids'>('all');
+  const [isRegeneratingDifficulty, setIsRegeneratingDifficulty] = useState<boolean>(false);
 
   // Interactive CBT Quiz Preview State
   const [cbtCurrentIndex, setCbtCurrentIndex] = useState<number>(0);
@@ -216,41 +347,41 @@ export const AiExamCreatorTab: React.FC = () => {
     setSelectedPreset(preset);
     if (preset === 'waec') {
       setAssessmentType('WAEC Standard Examination');
-      setDifficulty('Standard WAEC (WASSCE) Rigor');
+      setDifficulty('Standard (WAEC / BECE Standard)');
       setObjCount(50);
       setTheoryCount(6);
       setSelectedWeeksScope('all');
       if (isEarlyYears) setSelectedClass('SSS 2');
     } else if (preset === 'jamb') {
       setAssessmentType('JAMB / UTME CBT Quiz');
-      setDifficulty('JAMB / UTME Speed & Precision');
+      setDifficulty('Standard (WAEC / BECE Standard)');
       setObjCount(50);
       setTheoryCount(0); // JAMB CBT has no theory
       setSelectedWeeksScope('all');
       if (isEarlyYears) setSelectedClass('SSS 3');
     } else if (preset === 'bece') {
       setAssessmentType('BECE / Junior WAEC Examination');
-      setDifficulty('BECE Junior Secondary Standard');
+      setDifficulty('Standard (WAEC / BECE Standard)');
       setObjCount(40);
       setTheoryCount(4);
       setSelectedWeeksScope('all');
       setSelectedClass('JSS 3');
     } else if (preset === 'midterm') {
       setAssessmentType('Mid-Term CA Quiz');
-      setDifficulty('Continuous Assessment Standard');
+      setDifficulty('Standard (WAEC / BECE Standard)');
       setObjCount(25);
       setTheoryCount(2);
       setSelectedWeeksScope('midterm');
     } else if (preset === 'topical') {
       setAssessmentType('Topical Scheme Quiz');
-      setDifficulty('Topic Mastery Drill');
+      setDifficulty('Standard (WAEC / BECE Standard)');
       setObjCount(15);
       setTheoryCount(1);
       setSelectedWeeksScope('custom');
       if (targetedWeeks.length === 0) setTargetedWeeks([1]);
     } else if (preset === 'early_years') {
       setAssessmentType('Early Childhood Pictorial Quiz');
-      setDifficulty('Ages 3-6 Visual Recognition');
+      setDifficulty('Foundational / Easy (Remedial & Concept Recall)');
       setObjCount(12);
       setTheoryCount(0);
       setSelectedClass('Kindergarten / Reception (Age 5-6)');
@@ -312,11 +443,16 @@ export const AiExamCreatorTab: React.FC = () => {
   };
 
   // Handle Assessment Generation
-  const handleGenerateAssessment = async () => {
+  const handleGenerateAssessment = async (overrideDifficulty?: string) => {
     setIsGenerating(true);
     setErrorMsg('');
     setSuccessMsg('');
     setGenerationStep('Connecting to Calvin AI Academic Engine...');
+
+    const effectiveDifficulty = overrideDifficulty || difficulty;
+    if (overrideDifficulty && overrideDifficulty !== difficulty) {
+      setDifficulty(overrideDifficulty);
+    }
 
     try {
       if (activeGroundedScheme) {
@@ -359,7 +495,7 @@ export const AiExamCreatorTab: React.FC = () => {
             term: selectedTerm,
             assessmentType,
             curriculumTopics: customTopics,
-            difficulty,
+            difficulty: effectiveDifficulty,
             targetObjectiveCount: objCount,
             targetTheoryCount: theoryCount,
             schemeOfWork: activeGroundedScheme,
@@ -390,7 +526,7 @@ export const AiExamCreatorTab: React.FC = () => {
           term: selectedTerm,
           assessmentType,
           curriculumTopics: customTopics,
-          difficulty,
+          difficulty: effectiveDifficulty,
           targetObjectiveCount: objCount,
           targetTheoryCount: theoryCount,
           schemeOfWork: activeGroundedScheme,
@@ -443,7 +579,7 @@ export const AiExamCreatorTab: React.FC = () => {
         `ACADEMIC SESSION: 2025/2026                 TERM: ${selectedTerm.toUpperCase()}`,
         `ASSESSMENT: ${assessmentType.toUpperCase()} ${activeGroundedScheme ? `[GROUNDED IN SCHEME]` : ''}`,
         `SUBJECT: ${selectedSubject.toUpperCase()}        CLASS: ${selectedClass.toUpperCase()}`,
-        `TIME ALLOWED: ${assessmentData.timeAllowed?.toUpperCase() || (isSecondary ? '2 HOURS' : '1 HOUR')}`,
+        `DIFFICULTY: ${effectiveDifficulty.toUpperCase()}        TIME ALLOWED: ${assessmentData.timeAllowed?.toUpperCase() || (isSecondary ? '2 HOURS' : '1 HOUR')}`,
         `--------------------------------------------------------------------------------`,
         `CANDIDATE'S FULL NAME: ________________________________  EXAM NO: _______________`,
         `DATE: _____________________  CLASS SECTION: ___________  SIGNATURE: ____________`,
@@ -474,11 +610,15 @@ export const AiExamCreatorTab: React.FC = () => {
 
       const assessment: GeneratedAssessment = {
         ...assessmentData,
+        difficulty: effectiveDifficulty,
         id: 'EXAM_' + Date.now(),
         timestamp: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
         paperSavingText: paperSavingHeader,
         schemeSource: activeGroundedScheme ? `${activeGroundedScheme.subjectName} (${activeGroundedScheme.weeklyTopics?.length || 12}-Week Scheme)` : 'Stanbax Standard Curriculum'
       };
+
+      // Generate and store separate comprehensive marking aid document
+      assessment.markingAidText = formatMarkingAidText(assessment);
 
       setCurrentAssessment(assessment);
       setActiveView('paper_saving');
@@ -487,9 +627,7 @@ export const AiExamCreatorTab: React.FC = () => {
       setCbtSubmitted(false);
 
       setSuccessMsg(
-        activeGroundedScheme
-          ? `Calvin AI successfully generated ${assessment.objectives.length} objective questions ${assessment.theory.length > 0 ? `and ${assessment.theory.length} theory questions` : ''} grounded in your uploaded "${activeGroundedScheme.subjectName}" Scheme of Work!`
-          : `Successfully synthesized ${assessment.objectives.length} objective questions ${assessment.theory.length > 0 ? `and ${assessment.theory.length} theory questions` : ''} in strict single-line format!`
+        `Questions Set Successfully: ${assessment.objectives.length} single-line questions prepared cleanly for students (zero answers embedded). In a separate place, the Confidential Marking Aid & Answer Key has been generated in the Marking Aid Desk!`
       );
       
       // Auto-save to vault
@@ -713,9 +851,135 @@ export const AiExamCreatorTab: React.FC = () => {
     setTimeout(() => setSuccessMsg(''), 4500);
   };
 
-  // In-Page Clean Print Handler
+  // In-Page Clean Print Handler for Student Paper
   const handlePrintPaperSavingExam = () => {
-    window.print();
+    setActiveView('paper_saving');
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  // In-Page Print Handler for Separate Marking Aid
+  const handlePrintMarkingAid = () => {
+    setActiveView('marking_guide');
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  // Copy Separate Marking Aid to Clipboard
+  const handleCopyMarkingAidText = () => {
+    if (!currentAssessment) return;
+    const content = formatMarkingAidText(currentAssessment);
+    navigator.clipboard.writeText(content);
+    setCopiedMarkingAid(true);
+    setTimeout(() => setCopiedMarkingAid(false), 2500);
+  };
+
+  // Download Separate Marking Aid Plain Text (.txt)
+  const handleDownloadMarkingAidTxt = () => {
+    if (!currentAssessment) return;
+    const content = formatMarkingAidText(currentAssessment);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentAssessment.subject}_${currentAssessment.classLevel}_CONFIDENTIAL_Marking_Aid.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Download Separate Marking Aid Word Document (.doc)
+  const handleDownloadMarkingAidDoc = () => {
+    if (!currentAssessment) return;
+    const docHtml = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><title>${currentAssessment.subject} - Marking Aid</title>
+      <style>
+        body { font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.4; color: #1e293b; }
+        .confidential-header { text-align: center; border-bottom: 2pt solid #b91c1c; padding-bottom: 8pt; margin-bottom: 14pt; }
+        .stamp { color: #b91c1c; font-weight: bold; font-size: 12pt; letter-spacing: 1px; }
+        .grid-table { width: 100%; border-collapse: collapse; margin-bottom: 16pt; }
+        .grid-table td { border: 1pt solid #cbd5e1; padding: 6pt; text-align: center; font-size: 10pt; }
+        .grid-num { font-weight: bold; color: #64748b; font-size: 8pt; }
+        .grid-key { font-weight: bold; color: #1e3a8a; font-size: 12pt; }
+        .q-card { margin-bottom: 10pt; padding: 8pt; background: #f8fafc; border-left: 3pt solid #3b82f6; }
+        .theory-item { margin-bottom: 12pt; padding: 10pt; background: #fdf2f8; border-left: 3pt solid #ec4899; }
+      </style>
+      </head>
+      <body>
+        <div class="confidential-header">
+          <p class="stamp">*** CONFIDENTIAL MARKING AID & OFFICIAL SCORING GUIDE ***</p>
+          <h2>STANBAX SCHOOLS IBADAN, OYO STATE</h2>
+          <p><strong>EXAMINATIONS & ASSESSMENT DIRECTORATE • EXAMINERS ONLY</strong></p>
+          <p>SUBJECT: ${currentAssessment.subject.toUpperCase()} | CLASS: ${currentAssessment.classLevel.toUpperCase()} | TERM: ${currentAssessment.term.toUpperCase()}</p>
+          <p>DIFFICULTY RIGOR: ${(currentAssessment.difficulty || 'STANDARD').toUpperCase()} | TOTAL MARKS: 100%</p>
+        </div>
+        <h3>SECTION A: OBJECTIVE SCORING KEY & RATIONALE</h3>
+        <table class="grid-table">
+          <tr>
+            ${currentAssessment.objectives.map((o, idx) => `
+              ${idx > 0 && idx % 10 === 0 ? '</tr><tr>' : ''}
+              <td><span class="grid-num">Q${o.id}</span><br/><span class="grid-key">${o.correctOption}</span></td>
+            `).join('')}
+          </tr>
+        </table>
+        <div>
+          ${currentAssessment.objectives.map((o) => `
+            <div class="q-card">
+              <p><strong>Question ${o.id}:</strong> ${o.question}</p>
+              <p><strong>Correct Answer: [${o.correctOption}]</strong> ${o.correctOption === 'A' ? o.optionA : o.correctOption === 'B' ? o.optionB : o.correctOption === 'C' ? o.optionC : (o.optionD || '')}</p>
+              ${o.visualHint ? `<p><em>Examiner Rationale / Key Concept:</em> ${o.visualHint}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        ${currentAssessment.theory.length > 0 ? `
+          <h3 style="margin-top: 18pt;">SECTION B: THEORY & ESSAY MARKING SCHEME</h3>
+          <div>
+            ${currentAssessment.theory.map(t => `
+              <div class="theory-item">
+                <p><strong>QUESTION ${t.questionNumber} (${t.maxScore} Marks):</strong></p>
+                <p>${t.questionText.replace(/\n/g, '<br/>')}</p>
+                <p><strong>Model Answer & Scoring Rubric:</strong></p>
+                <p>${(t.sampleAnswer || '').replace(/\n/g, '<br/>')}</p>
+                ${t.subParts && t.subParts.length > 0 ? `
+                  <p><strong>Marks Distribution:</strong></p>
+                  <ul>${t.subParts.map(sp => `<li>${sp}</li>`).join('')}</ul>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </body></html>
+    `;
+    const blob = new Blob([docHtml], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentAssessment.subject}_${currentAssessment.classLevel}_CONFIDENTIAL_Marking_Aid.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Toggle difficulty directly on the assessment and optionally re-synthesize
+  const handleToggleAssessmentDifficulty = async (tier: DifficultyTierOption, regenerate: boolean = true) => {
+    setDifficulty(tier.value);
+    if (!currentAssessment) return;
+    
+    if (regenerate) {
+      setIsRegeneratingDifficulty(true);
+      await handleGenerateAssessment(tier.value);
+      setIsRegeneratingDifficulty(false);
+    } else {
+      const updatedAssessment: GeneratedAssessment = {
+        ...currentAssessment,
+        difficulty: tier.value
+      };
+      updatedAssessment.markingAidText = formatMarkingAidText(updatedAssessment);
+      setCurrentAssessment(updatedAssessment);
+      setSuccessMsg(`Exam difficulty toggled to ${tier.label}.`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    }
   };
 
   return (
@@ -755,6 +1019,28 @@ export const AiExamCreatorTab: React.FC = () => {
             >
               <Upload className="w-4 h-4 text-emerald-200" />
               <span>Upload Scheme of Work</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (currentAssessment) {
+                  setActiveView('marking_guide');
+                } else if (savedVault.length > 0) {
+                  setCurrentAssessment(savedVault[0]);
+                  setActiveView('marking_guide');
+                } else {
+                  setActiveView('saved_vault');
+                  setVaultFilter('marking_aids');
+                }
+              }}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-sm ${
+                activeView === 'marking_guide'
+                  ? 'bg-emerald-500 text-white border-emerald-400 ring-2 ring-emerald-400/40'
+                  : 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200 border-emerald-700/60'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Marking Aids Desk</span>
             </button>
 
             <button
@@ -1072,7 +1358,7 @@ export const AiExamCreatorTab: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {isEarlyYears && (
               <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-black flex items-center gap-1">
                 <span>Early Years Pictorial</span>
@@ -1083,10 +1369,27 @@ export const AiExamCreatorTab: React.FC = () => {
                 <span>Secondary Standard</span>
               </span>
             )}
+            <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border flex items-center gap-1 ${
+              difficulty.includes('Foundational') || difficulty.includes('Easy')
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                : difficulty.includes('Advanced') || difficulty.includes('Distinction')
+                ? 'bg-purple-100 text-purple-800 border-purple-300'
+                : difficulty.includes('Olympiad') || difficulty.includes('Challenge')
+                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                : 'bg-blue-100 text-blue-800 border-blue-300'
+            }`}>
+              <Zap className="w-3 h-3" />
+              <span>{
+                difficulty.includes('Foundational') || difficulty.includes('Easy') ? 'Foundational Level'
+                : difficulty.includes('Advanced') || difficulty.includes('Distinction') ? 'Distinction Level'
+                : difficulty.includes('Olympiad') || difficulty.includes('Challenge') ? 'Olympiad Tier'
+                : 'Standard WAEC'
+              }</span>
+            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
           {/* 1. Class / Educational Level */}
           <div className="space-y-1.5">
             <label className="font-bold text-slate-700 flex items-center justify-between">
@@ -1194,6 +1497,88 @@ export const AiExamCreatorTab: React.FC = () => {
               onChange={(e) => setAssessmentType(e.target.value)}
               className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 outline-hidden"
             />
+          </div>
+
+          {/* 5. Exam Difficulty */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 flex items-center justify-between">
+              <span>Exam Difficulty</span>
+              <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                difficulty.includes('Foundational') || difficulty.includes('Easy')
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : difficulty.includes('Advanced') || difficulty.includes('Distinction')
+                  ? 'bg-purple-100 text-purple-800'
+                  : difficulty.includes('Olympiad') || difficulty.includes('Challenge')
+                  ? 'bg-rose-100 text-rose-800'
+                  : 'bg-blue-100 text-blue-800'
+              }`}>
+                {difficulty.includes('Foundational') || difficulty.includes('Easy') ? 'Foundational'
+                  : difficulty.includes('Advanced') || difficulty.includes('Distinction') ? 'Distinction'
+                  : difficulty.includes('Olympiad') || difficulty.includes('Challenge') ? 'Olympiad'
+                  : 'Standard'}
+              </span>
+            </label>
+            <select
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 outline-hidden"
+            >
+              {DIFFICULTY_TIERS.map((tier) => (
+                <option key={tier.id} value={tier.value}>
+                  {tier.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Dedicated Interactive Difficulty Segmented Switcher */}
+        <div className="pt-3 pb-1 border-t border-slate-100 space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <label className="font-black text-slate-800 text-xs flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span>Exam Difficulty & Cognitive Rigor Toggle</span>
+              <span className="text-slate-400 font-normal ml-1 hidden sm:inline">(Adaptive Blooms Taxonomy Depth)</span>
+            </label>
+            <span className="text-[11px] font-bold text-slate-500">
+              Active Difficulty: <strong className="text-purple-950 font-black">{difficulty}</strong>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+            {DIFFICULTY_TIERS.map((tier) => {
+              const Icon = tier.icon;
+              const isActive = difficulty === tier.value || 
+                (tier.id === 'standard' && (difficulty.includes('Standard') || difficulty.includes('WASSCE'))) ||
+                (tier.id === 'easy' && (difficulty.includes('Easy') || difficulty.includes('Foundational') || difficulty.includes('Ages 3-6'))) ||
+                (tier.id === 'advanced' && (difficulty.includes('Advanced') || difficulty.includes('Distinction'))) ||
+                (tier.id === 'olympiad' && (difficulty.includes('Olympiad') || difficulty.includes('Challenge')));
+
+              return (
+                <button
+                  key={tier.id}
+                  type="button"
+                  onClick={() => setDifficulty(tier.value)}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                    isActive
+                      ? tier.activeClass
+                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/60 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-xs block">{tier.label}</span>
+                    <Icon className={`w-4 h-4 ${isActive ? tier.iconActiveClass : 'text-slate-400'}`} />
+                  </div>
+                  <p className="text-[10px] leading-snug text-slate-500 font-normal">
+                    {tier.description}
+                  </p>
+                  <div className="pt-1 border-t border-slate-200/60 flex items-center justify-between text-[9px] font-bold">
+                    <span className={isActive ? tier.tagActiveClass : 'text-slate-400'}>{tier.tag}</span>
+                    {isActive && <Check className="w-3 h-3 text-emerald-600" />}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1327,7 +1712,7 @@ export const AiExamCreatorTab: React.FC = () => {
 
           {/* Primary Action Button */}
           <button
-            onClick={handleGenerateAssessment}
+            onClick={() => handleGenerateAssessment()}
             disabled={isGenerating}
             id="generate-ai-exam-btn"
             className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-600 to-blue-700 hover:from-purple-800 hover:to-blue-800 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
@@ -1357,6 +1742,134 @@ export const AiExamCreatorTab: React.FC = () => {
       {/* Generated Assessment Workspace */}
       {currentAssessment && (
         <div className="space-y-4">
+          {/* Dual Output Generation Status Banner */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* 1. Student Exam Paper Status */}
+            <div 
+              onClick={() => setActiveView('paper_saving')}
+              className={`p-4 rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs ${
+                activeView === 'paper_saving' || activeView === 'cards' || activeView === 'cbt_preview'
+                  ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-500/20'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-blue-900 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
+                  <FileText className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-slate-900 text-sm">Student Question Paper</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 font-extrabold text-[10px]">
+                      Clean Copy
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {currentAssessment.objectives.length} single-line questions & {currentAssessment.theory.length} theory tasks. Zero answers embedded.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveView('paper_saving');
+                }}
+                className={`px-3 py-1.5 rounded-xl font-black text-xs transition shrink-0 ${
+                  activeView === 'paper_saving'
+                    ? 'bg-blue-900 text-white'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                View Questions
+              </button>
+            </div>
+
+            {/* 2. Separate Confidential Marking Aid Status */}
+            <div 
+              onClick={() => setActiveView('marking_guide')}
+              className={`p-4 rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs ${
+                activeView === 'marking_guide'
+                  ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-500/20'
+                  : 'bg-white border-slate-200 hover:border-emerald-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
+                  <ShieldCheck className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-slate-900 text-sm">Separate Marking Aid & Answers</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-extrabold text-[10px] border border-emerald-300">
+                      Examiners Only
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                    Created in a separate place: Full answer keys, question rationales & Section B step-by-step rubrics.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveView('marking_guide');
+                }}
+                className={`px-3 py-1.5 rounded-xl font-black text-xs transition shrink-0 ${
+                  activeView === 'marking_guide'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'
+                }`}
+              >
+                Open Marking Aid
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive Rigor / Difficulty Toggle Bar for Exam */}
+          <div className="bg-gradient-to-r from-purple-50 via-slate-50 to-blue-50 border border-purple-200/80 rounded-3xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black shadow-xs">
+                <Zap className="w-4 h-4 text-amber-300" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900 text-xs">Exam Difficulty Rigor Level</span>
+                  <span className="px-2 py-0.2 rounded-full font-black text-[10px] bg-purple-200/80 text-purple-950 border border-purple-300">
+                    Active: {currentAssessment.difficulty || difficulty}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Toggle cognitive rigor between Foundational, Standard WAEC/BECE, Distinction, or Olympiad.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {DIFFICULTY_TIERS.map((tier) => {
+                const isActive = (currentAssessment.difficulty || difficulty).toLowerCase().includes(tier.id);
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    disabled={isRegeneratingDifficulty || isGenerating}
+                    onClick={() => handleToggleAssessmentDifficulty(tier, true)}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer text-xs ${
+                      isActive
+                        ? tier.badgeClass + ' ring-2 ring-purple-600/30 font-black shadow-xs'
+                        : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400'
+                    }`}
+                    title={`Switch difficulty to ${tier.label} and re-synthesize questions and marking aid`}
+                  >
+                    <span>{tier.label}</span>
+                    {isActive && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Workspace Sub-Navigation & Quick Actions */}
           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
             {/* View switcher */}
@@ -1370,7 +1883,19 @@ export const AiExamCreatorTab: React.FC = () => {
                 }`}
               >
                 <FileText className="w-3.5 h-3.5 text-amber-400" />
-                <span>Paper-Saving Master Sheet</span>
+                <span>Student Question Paper</span>
+              </button>
+
+              <button
+                onClick={() => setActiveView('marking_guide')}
+                className={`px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeView === 'marking_guide'
+                    ? 'bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-500/30'
+                    : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Separate Marking Aid & Answers</span>
               </button>
 
               <button
@@ -1396,75 +1921,122 @@ export const AiExamCreatorTab: React.FC = () => {
                 <Layers className="w-3.5 h-3.5 text-amber-400" />
                 <span>Question Cards ({currentAssessment.objectives.length})</span>
               </button>
-
-              <button
-                onClick={() => setActiveView('marking_guide')}
-                className={`px-3.5 py-2 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                  activeView === 'marking_guide'
-                    ? 'bg-blue-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Marking Scheme</span>
-              </button>
             </div>
 
-            {/* Action buttons */}
+            {/* Dynamic Action buttons */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handlePrintPaperSavingExam}
-                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                title="Print ready for classroom photocopying"
-              >
-                <Printer className="w-3.5 h-3.5 text-amber-400" />
-                <span>Print Paper</span>
-              </button>
+              {activeView === 'marking_guide' ? (
+                <>
+                  <button
+                    onClick={handlePrintMarkingAid}
+                    className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Print separate confidential marking aid for teachers & examiners"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>Print Marking Aid</span>
+                  </button>
 
-              <button
-                onClick={handleCopyPaperSavingText}
-                className="px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold border border-purple-200 transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Copy all questions on same line for Word or Docs"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-purple-700" />}
-                <span>{copied ? 'Copied!' : 'Copy Single-Line'}</span>
-              </button>
+                  <button
+                    onClick={handleCopyMarkingAidText}
+                    className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Copy complete solutions key and scoring rubrics"
+                  >
+                    {copiedMarkingAid ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
+                    <span>{copiedMarkingAid ? 'Copied Solutions!' : 'Copy Solutions'}</span>
+                  </button>
 
-              <button
-                onClick={handleDownloadDoc}
-                className="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Export as Microsoft Word file"
-              >
-                <Download className="w-3.5 h-3.5 text-blue-700" />
-                <span>Word (.doc)</span>
-              </button>
+                  <button
+                    onClick={handleDownloadMarkingAidDoc}
+                    className="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Export separate Marking Aid as Microsoft Word file"
+                  >
+                    <Download className="w-3.5 h-3.5 text-blue-700" />
+                    <span>Marking Aid (.doc)</span>
+                  </button>
 
-              <button
-                onClick={handleDownloadTxt}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Export as plain text file"
-              >
-                <FileText className="w-3.5 h-3.5 text-slate-600" />
-                <span>Text (.txt)</span>
-              </button>
+                  <button
+                    onClick={handleDownloadMarkingAidTxt}
+                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Export separate Marking Aid as plain text file"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Marking Aid (.txt)</span>
+                  </button>
 
-              <button
-                onClick={handlePublishToHomework}
-                className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                title="Assign to students in their portal"
-              >
-                <Send className="w-3.5 h-3.5 text-emerald-200" />
-                <span>Assign as Homework</span>
-              </button>
+                  <button
+                    onClick={() => setActiveView('paper_saving')}
+                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-400" />
+                    <span>View Student Paper</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handlePrintPaperSavingExam}
+                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Print student question paper ready for photocopying"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Print Question Paper</span>
+                  </button>
 
-              <button
-                onClick={handlePublishToCbt}
-                className="px-3 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                title="Publish interactive drill to Student CBT Practice Engine"
-              >
-                <Zap className="w-3.5 h-3.5 text-purple-200" />
-                <span>Publish to CBT Hall</span>
-              </button>
+                  <button
+                    onClick={handleCopyPaperSavingText}
+                    className="px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold border border-purple-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Copy questions on same line for Word or Docs (no answers)"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-purple-700" />}
+                    <span>{copied ? 'Copied!' : 'Copy Questions'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadDoc}
+                    className="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Export student question paper as Microsoft Word file (no answers)"
+                  >
+                    <Download className="w-3.5 h-3.5 text-blue-700" />
+                    <span>Questions (.doc)</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadTxt}
+                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Export student question paper as plain text file"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Questions (.txt)</span>
+                  </button>
+
+                  <button
+                    onClick={handlePublishToHomework}
+                    className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Assign questions to students in their portal"
+                  >
+                    <Send className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>Assign Homework</span>
+                  </button>
+
+                  <button
+                    onClick={handlePublishToCbt}
+                    className="px-3 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Publish interactive drill to Student CBT Practice Engine"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-purple-200" />
+                    <span>Publish to CBT Hall</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveView('marking_guide')}
+                    className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Switch to separate confidential marking aid"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Open Marking Aid</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1559,7 +2131,7 @@ export const AiExamCreatorTab: React.FC = () => {
                   </p>
 
                   {/* Candidate meta grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 text-[11px] text-left">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 text-[11px] text-left">
                     <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
                       <span className="text-slate-400 font-bold block text-[9px] uppercase">Subject</span>
                       <span className="font-black text-slate-900">{currentAssessment.subject}</span>
@@ -1567,6 +2139,12 @@ export const AiExamCreatorTab: React.FC = () => {
                     <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
                       <span className="text-slate-400 font-bold block text-[9px] uppercase">Class</span>
                       <span className="font-black text-slate-900">{currentAssessment.classLevel}</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase">Difficulty Tier</span>
+                      <span className="font-black text-purple-900 truncate block">
+                        {currentAssessment.difficulty || difficulty}
+                      </span>
                     </div>
                     <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
                       <span className="text-slate-400 font-bold block text-[9px] uppercase">Time Allowed</span>
@@ -1738,6 +2316,9 @@ export const AiExamCreatorTab: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-900 border border-purple-200 font-bold text-xs">
+                    {currentAssessment.difficulty || difficulty}
+                  </span>
                   <span className="px-3 py-1 rounded-xl bg-slate-100 text-slate-800 font-mono font-bold text-xs">
                     Question {cbtCurrentIndex + 1} of {currentAssessment.objectives.length}
                   </span>
@@ -1923,6 +2504,15 @@ export const AiExamCreatorTab: React.FC = () => {
                 </div>
               )}
 
+              <div className="p-3 bg-white rounded-2xl border border-slate-200 flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">
+                  {currentAssessment.subject} • {currentAssessment.classLevel} ({currentAssessment.objectives.length} Objectives)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-900 border border-purple-200 font-bold text-[11px]">
+                  Rigor Tier: {currentAssessment.difficulty || difficulty}
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {currentAssessment.objectives.map((item, idx) => (
                   <div key={item.id} className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 text-xs space-y-3">
@@ -1954,47 +2544,406 @@ export const AiExamCreatorTab: React.FC = () => {
             </div>
           )}
 
-          {/* VIEW 4: MARKING GUIDE */}
+          {/* VIEW 4: SEPARATE CONFIDENTIAL MARKING AID WORKSPACE */}
           {activeView === 'marking_guide' && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  <h3 className="font-black text-slate-900 text-base">
-                    Official Marking Guide & Solutions
-                  </h3>
+            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-emerald-300 space-y-6">
+              {/* Official Confidential Header */}
+              <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/60 rounded-3xl p-5 sm:p-6 space-y-3 relative overflow-hidden">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-200/80 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-800 text-white flex items-center justify-center font-black shadow-md shrink-0">
+                      <ShieldCheck className="w-6 h-6 text-emerald-300" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-black text-[10px] tracking-wider uppercase">
+                          Confidential • Examiners Only
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-950 font-extrabold text-[10px]">
+                          Official Marking Aid
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-200 text-[10px] font-bold">
+                          {currentAssessment.difficulty || difficulty}
+                        </span>
+                      </div>
+                      <h3 className="font-black text-slate-900 text-lg sm:text-xl mt-1">
+                        {currentAssessment.schoolName} • Marking Aid & Solution Key
+                      </h3>
+                      <p className="text-xs text-slate-600">
+                        Official Academic Directorate • Terminal Assessment Scoring Guide & Step-by-Step Rubrics
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quick Export Controls */}
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handlePrintMarkingAid}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      title="Print confidential marking aid"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>Print Aid</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadMarkingAidDoc}
+                      className="px-3.5 py-2 rounded-xl bg-white border border-emerald-300 text-emerald-900 font-bold text-xs hover:bg-emerald-100/60 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="Export Word .doc file"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Word (.doc)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyMarkingAidText}
+                      className="px-3.5 py-2 rounded-xl bg-white border border-emerald-300 text-emerald-900 font-bold text-xs hover:bg-emerald-100/60 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      {copiedMarkingAid ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
+                      <span>{copiedMarkingAid ? 'Copied!' : 'Copy Key'}</span>
+                    </button>
+                  </div>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                  Confidential
-                </span>
+
+                {/* Meta details bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white border border-emerald-200/80">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Subject & Class</span>
+                    <span className="font-black text-slate-900">{currentAssessment.subject} • {currentAssessment.classLevel}</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-emerald-200/80">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Session & Term</span>
+                    <span className="font-black text-slate-900">2025/2026 • {currentAssessment.term}</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-emerald-200/80">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Cognitive Rigor</span>
+                    <span className="font-black text-purple-900">{currentAssessment.difficulty || difficulty}</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-emerald-200/80">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Total Allocation</span>
+                    <span className="font-black text-emerald-800">
+                      {currentAssessment.objectives.length} Obj + {currentAssessment.theory.reduce((acc, t) => acc + (t.maxScore || 10), 0)} Theory (100%)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-rose-100/70 border border-rose-200 text-rose-900 text-[11px] flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>
+                    <strong>EXAMINER NOTICE:</strong> This marking aid was created in a separate place from candidate examination sheets. Keep confidential and retain for script moderation.
+                  </span>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-black text-xs text-slate-700 uppercase">
-                  Section A: Objective Key Grid
-                </h4>
-                <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 text-xs">
-                  {currentAssessment.objectives.map((o) => (
-                    <div key={o.id} className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                      <span className="text-[10px] text-slate-400 block font-bold">Q{o.id}</span>
-                      <span className="font-black text-blue-900 text-sm">{o.correctOption}</span>
-                    </div>
-                  ))}
+              {/* Marking Aid Sub-Tab Navigation */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setMarkingAidSubTab('grid')}
+                    className={`px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                      markingAidSubTab === 'grid'
+                        ? 'bg-emerald-800 text-white font-black shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <CheckSquare className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Rapid Scoring Key Grid</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMarkingAidSubTab('detailed')}
+                    className={`px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                      markingAidSubTab === 'detailed'
+                        ? 'bg-emerald-800 text-white font-black shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Item-by-Item Solutions & Rationale</span>
+                  </button>
+
+                  {currentAssessment.theory.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setMarkingAidSubTab('rubric')}
+                      className={`px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                        markingAidSubTab === 'rubric'
+                          ? 'bg-emerald-800 text-white font-black shadow-xs'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Section B Theory Step Rubrics ({currentAssessment.theory.length})</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setMarkingAidSubTab('policy')}
+                    className={`px-3.5 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                      markingAidSubTab === 'policy'
+                        ? 'bg-emerald-800 text-white font-black shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Award className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Examiner Marking Policy</span>
+                  </button>
                 </div>
 
-                {currentAssessment.theory.length > 0 && (
-                  <div className="pt-4 border-t border-slate-200 space-y-3">
-                    <h4 className="font-black text-xs text-slate-700 uppercase">
-                      Section B: Theory Rubrics
-                    </h4>
-                    {currentAssessment.theory.map(t => (
-                      <div key={t.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                        <span className="font-bold text-slate-900">Question {t.questionNumber} ({t.maxScore}m):</span>
-                        <p className="text-slate-600 italic">{t.sampleAnswer || 'Model answer points with step-by-step scoring breakdown.'}</p>
-                      </div>
+                {/* Option filter for rapid grid */}
+                {markingAidSubTab === 'grid' && (
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-slate-400 font-bold mr-1">Filter Key:</span>
+                    {(['all', 'A', 'B', 'C', 'D'] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setMarkingOptionFilter(opt)}
+                        className={`w-6 h-6 rounded-lg font-black transition cursor-pointer ${
+                          markingOptionFilter === opt
+                            ? 'bg-emerald-700 text-white'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {opt.toUpperCase()}
+                      </button>
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* SUB-VIEW 1: RAPID SCORING KEY GRID */}
+              {markingAidSubTab === 'grid' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-bold">
+                      Section A Rapid Grading Matrix ({currentAssessment.objectives.length} Items):
+                    </span>
+                    <span className="text-emerald-800 font-bold">
+                      Option Distribution: A ({currentAssessment.objectives.filter(o => o.correctOption === 'A').length}), B ({currentAssessment.objectives.filter(o => o.correctOption === 'B').length}), C ({currentAssessment.objectives.filter(o => o.correctOption === 'C').length}), D ({currentAssessment.objectives.filter(o => o.correctOption === 'D').length})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-2 text-xs">
+                    {currentAssessment.objectives
+                      .filter(o => markingOptionFilter === 'all' || o.correctOption === markingOptionFilter)
+                      .map((o) => {
+                        const correctVal = o.correctOption === 'A' ? o.optionA : o.correctOption === 'B' ? o.optionB : o.correctOption === 'C' ? o.optionC : (o.optionD || '');
+                        return (
+                          <div 
+                            key={o.id} 
+                            className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 transition group relative text-center"
+                            title={`Q${o.id}: [${o.correctOption}] ${correctVal}`}
+                          >
+                            <span className="text-[10px] text-slate-400 block font-bold">Q{o.id}</span>
+                            <span className="font-black text-emerald-800 text-base block my-0.5">
+                              {o.correctOption}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-full">
+                              {correctVal}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 2: DETAILED ITEM-BY-ITEM SOLUTIONS & RATIONALE */}
+              {markingAidSubTab === 'detailed' && (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 text-xs">
+                    Each objective item includes the authentic syllabus rationale, correct option verification, and examiner commentary to resolve student grading inquiries.
+                  </div>
+
+                  <div className="space-y-3">
+                    {currentAssessment.objectives.map((o) => {
+                      const correctVal = o.correctOption === 'A' ? o.optionA : o.correctOption === 'B' ? o.optionB : o.correctOption === 'C' ? o.optionC : (o.optionD || '');
+                      return (
+                        <div key={o.id} className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2.5">
+                          <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-blue-900 text-white font-black text-xs flex items-center justify-center">
+                                {o.id}
+                              </span>
+                              <span className="font-bold text-slate-700">Objective Question {o.id}</span>
+                            </div>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-xs flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Correct Key: [{o.correctOption}]</span>
+                            </span>
+                          </div>
+
+                          <p className="font-bold text-slate-900 text-sm">
+                            {cleanAsterisks(o.question.replace(/^\[.*?\]\s*/, ''))}
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                            {(['A', 'B', 'C', ...(o.optionD ? ['D'] : [])] as const).map((letter) => {
+                              const val = letter === 'A' ? o.optionA : letter === 'B' ? o.optionB : letter === 'C' ? o.optionC : (o.optionD || '');
+                              const isCorrect = o.correctOption === letter;
+                              return (
+                                <div 
+                                  key={letter}
+                                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                                    isCorrect 
+                                      ? 'bg-emerald-100/90 border-emerald-400 text-emerald-950 font-black shadow-xs ring-1 ring-emerald-500/20' 
+                                      : 'bg-white border-slate-200 text-slate-600'
+                                  }`}
+                                >
+                                  <span><strong>{letter})</strong> {cleanAsterisks(val)}</span>
+                                  {isCorrect && (
+                                    <span className="px-1.5 py-0.2 rounded bg-emerald-700 text-white font-black text-[9px] uppercase">
+                                      Key
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Rationale and traps */}
+                          <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-[11px] text-amber-950 space-y-1">
+                            <span className="font-black text-amber-900 block flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Examiner Solution Rationale:</span>
+                            </span>
+                            <p className="leading-relaxed">
+                              {o.visualHint || `Matches official Nigerian NERDC curriculum benchmark. Key [${o.correctOption}]: ${correctVal}. Distractors represent standard pupil misconceptions.`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 3: SECTION B THEORY STEP-BY-STEP RUBRICS */}
+              {markingAidSubTab === 'rubric' && currentAssessment.theory.length > 0 && (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs">
+                    Theory questions carry method marks (M), accuracy marks (A), and independent marks (B). Follow sequential marking rules to ensure equitable grading.
+                  </div>
+
+                  <div className="space-y-4">
+                    {currentAssessment.theory.map((t) => (
+                      <div key={t.id} className="p-5 rounded-3xl bg-slate-50 border border-slate-200 text-xs space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-xl bg-purple-900 text-white font-black flex items-center justify-center">
+                              {t.questionNumber}
+                            </span>
+                            <span className="font-black text-slate-900 text-sm">Question {t.questionNumber} Model Solution</span>
+                          </div>
+                          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-900 font-black text-xs border border-purple-200">
+                            Maximum Score: {t.maxScore} Marks
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-1">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Official Exam Task Prompt:</span>
+                          <p className="font-bold text-slate-900 whitespace-pre-line leading-relaxed">
+                            {cleanAsterisks(t.questionText)}
+                          </p>
+                        </div>
+
+                        {/* Model Answer */}
+                        <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-300 space-y-2">
+                          <span className="font-black text-emerald-950 text-xs flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>Comprehensive Model Answer & Worked Steps:</span>
+                          </span>
+                          <div className="text-emerald-900 leading-relaxed font-medium whitespace-pre-line bg-white/70 p-3 rounded-xl border border-emerald-200/80">
+                            {cleanAsterisks(t.sampleAnswer || 'Model answers points with step-by-step scoring breakdown.')}
+                          </div>
+                        </div>
+
+                        {/* Step marks breakdown */}
+                        {t.subParts && t.subParts.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <span className="font-black text-slate-700 text-xs block">
+                              Mark Allocations & Sub-Part Breakdown:
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {t.subParts.map((sp, idx) => (
+                                <div key={idx} className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between gap-2 text-slate-800">
+                                  <span>{sp}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-900 font-bold text-[10px]">
+                                    M/A
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 4: EXAMINER MARKING POLICY & MODERATION STANDARDS */}
+              {markingAidSubTab === 'policy' && (
+                <div className="space-y-4 text-xs leading-relaxed">
+                  <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-3">
+                    <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                      <Award className="w-4 h-4 text-amber-500" />
+                      <span>Stanbax Examinations Board • Standard Examiner Moderation Policy</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                        <span className="font-black text-blue-900 block">1. Consequential (Follow-Through) Marking</span>
+                        <p className="text-slate-600">
+                          Where an early arithmetic or algebraic error is made, credit subsequent correct mathematical operations (M-marks) provided the candidate’s method remains mathematically sound.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                        <span className="font-black text-blue-900 block">2. Units & Scientific Notation</span>
+                        <p className="text-slate-600">
+                          Deduct a maximum of 1 mark per whole question for omission of standard S.I. units (e.g., cm², m/s, kg, Ω, Joules) in final accuracy answers.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                        <span className="font-black text-blue-900 block">3. Scientific Spelling of Technical Terms</span>
+                        <p className="text-slate-600">
+                          In Biology and Chemistry, phonetic misspellings that do not corrupt biological taxonomy may be accepted with a 0.5-mark deduction. Key anatomical words must be unambiguous.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                        <span className="font-black text-blue-900 block">4. 10% Script Spot Moderation</span>
+                        <p className="text-slate-600">
+                          All class marking sets will undergo a mandatory 10% random sample review by the Subject Head and Academic Vice-Principal prior to portal gradebook publication.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Quick Jump Bar */}
+              <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <span className="text-slate-500 font-bold">
+                  Marking Aid successfully synchronized with active exam questions.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('paper_saving')}
+                    className="px-4 py-2 rounded-xl bg-blue-900 hover:bg-blue-800 text-white font-bold transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Return to Student Question Paper</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2004,41 +2953,87 @@ export const AiExamCreatorTab: React.FC = () => {
       {/* VIEW 5: SAVED EXAM VAULT */}
       {activeView === 'saved_vault' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-amber-500" />
               <h3 className="font-black text-slate-900 text-base">
-                Saved Examinations & Quiz Vault ({savedVault.length})
+                Saved Examinations & Confidential Marking Aids Vault ({savedVault.length})
               </h3>
             </div>
-            {savedVault.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSavedVault([]);
-                  localStorage.removeItem('stanbax_tutor_exams_vault');
-                }}
-                className="text-xs text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
-              >
-                Clear Archive
-              </button>
-            )}
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Vault Filter */}
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setVaultFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                    vaultFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs font-black' : 'text-slate-600'
+                  }`}
+                >
+                  All ({savedVault.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVaultFilter('exams')}
+                  className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                    vaultFilter === 'exams' ? 'bg-white text-blue-900 shadow-2xs font-black' : 'text-slate-600'
+                  }`}
+                >
+                  Question Papers
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVaultFilter('marking_aids')}
+                  className={`px-2.5 py-1 rounded-lg cursor-pointer transition ${
+                    vaultFilter === 'marking_aids' ? 'bg-white text-emerald-900 shadow-2xs font-black' : 'text-slate-600'
+                  }`}
+                >
+                  Marking Aids
+                </button>
+              </div>
+
+              {savedVault.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Clear all saved exams and marking aids archive?')) {
+                      setSavedVault([]);
+                      localStorage.removeItem('stanbax_tutor_exams_vault');
+                    }
+                  }}
+                  className="text-xs text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
+                >
+                  Clear Archive
+                </button>
+              )}
+            </div>
           </div>
 
           {savedVault.length === 0 ? (
             <div className="text-center py-12 text-slate-400 space-y-2">
               <BookOpen className="w-10 h-10 mx-auto text-slate-300" />
               <p className="font-bold text-sm">No saved exams in vault yet.</p>
-              <p className="text-xs">Generated exams are automatically stored here for instant reprinting.</p>
+              <p className="text-xs">Generated exams and their separate marking aids are automatically stored here for instant reprinting.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {savedVault.map((item) => (
                 <div key={item.id} className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 font-black text-[10px]">
-                      {item.classLevel}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 font-black text-[10px]">
+                        {item.classLevel}
+                      </span>
+                      {item.difficulty && (
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 font-bold text-[10px]">
+                          {item.difficulty}
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-bold text-[10px] border border-emerald-200">
+                        Marking Aid Available
+                      </span>
+                    </div>
                     <span className="text-[11px] text-slate-400 font-mono">{item.timestamp}</span>
                   </div>
 
@@ -2047,16 +3042,53 @@ export const AiExamCreatorTab: React.FC = () => {
                     {item.objectives.length} Objectives • {item.theory.length} Theory Questions • {item.schemeSource || 'Standard'}
                   </p>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200 flex-wrap">
                     <button
                       type="button"
                       onClick={() => {
                         setCurrentAssessment(item);
                         setActiveView('paper_saving');
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-blue-900 text-white font-bold text-xs cursor-pointer hover:bg-blue-800"
+                      className="px-3 py-1.5 rounded-xl bg-blue-900 text-white font-bold text-xs cursor-pointer hover:bg-blue-800 flex items-center gap-1"
                     >
-                      Open Exam
+                      <FileText className="w-3 h-3 text-amber-400" />
+                      <span>Open Questions</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentAssessment(item);
+                        setActiveView('marking_guide');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-bold text-xs cursor-pointer hover:bg-emerald-800 flex items-center gap-1"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-emerald-300" />
+                      <span>Open Marking Aid</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const content = formatMarkingAidText(item);
+                        const docHtml = `
+                          <html><body>
+                            <h2>CONFIDENTIAL MARKING AID: ${item.title}</h2>
+                            <p>CLASS: ${item.classLevel} | SUBJECT: ${item.subject} | RIGOR: ${item.difficulty || 'Standard'}</p>
+                            <pre>${content}</pre>
+                          </body></html>
+                        `;
+                        const blob = new Blob([docHtml], { type: 'application/msword;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${item.subject}_${item.classLevel}_Marking_Aid.doc`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold text-xs cursor-pointer hover:bg-slate-100 flex items-center gap-1"
+                      title="Download separate marking aid Word file"
+                    >
+                      <Download className="w-3 h-3 text-emerald-700" />
+                      <span>Aid (.doc)</span>
                     </button>
                     <button
                       type="button"
@@ -2067,7 +3099,7 @@ export const AiExamCreatorTab: React.FC = () => {
                       }}
                       className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold text-xs cursor-pointer hover:bg-slate-100"
                     >
-                      Copy Single-Line
+                      Copy Questions
                     </button>
                   </div>
                 </div>

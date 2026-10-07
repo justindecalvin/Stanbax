@@ -66,6 +66,7 @@ export interface LocalAssessmentResponse {
   }>;
   paperSavingText: string;
   markingGuide: string;
+  difficulty?: string;
 }
 
 export function generateLocalCurriculumAssessment(req: LocalAssessmentRequest): LocalAssessmentResponse {
@@ -537,6 +538,7 @@ Nevertheless, significant impediments persist. Erratic power supply and prohibit
     objectives,
     theory,
     paperSavingText: headerText,
-    markingGuide
+    markingGuide,
+    difficulty: req.difficulty || 'Standard (WAEC / BECE Standard)'
   };
 }

@@ -140,6 +140,11 @@ export const SchoolRepresentativeChat: React.FC<SchoolRepresentativeChatProps> =
   const [bookingNotes, setBookingNotes] = useState('');
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
 
+  // Language State for Calvin AI Multilingual Concierge (Yoruba, French, Hausa, Igbo, English)
+  const [chatLanguage, setChatLanguage] = useState<'en' | 'yo' | 'fr' | 'ha' | 'ig'>('en');
+  // Microphone permission error banner state
+  const [micPermissionDenied, setMicPermissionDenied] = useState(false);
+
   // Audio Voice Notes Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -238,6 +243,7 @@ export const SchoolRepresentativeChat: React.FC<SchoolRepresentativeChatProps> =
 
   // Voice Recording Handlers
   const startVoiceRecording = async () => {
+    setMicPermissionDenied(false);
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -274,15 +280,12 @@ export const SchoolRepresentativeChat: React.FC<SchoolRepresentativeChatProps> =
           setRecordingSeconds(sec => sec + 1);
         }, 1000);
       } else {
-        throw new Error('No audio device support');
+        setMicPermissionDenied(true);
       }
-    } catch {
-      // Clean simulated fallback voice note
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds(sec => sec + 1);
-      }, 1000);
+    } catch (err: any) {
+      console.warn('Microphone permission check:', err?.message || err);
+      setMicPermissionDenied(true);
+      setIsRecording(false);
     }
   };
 
@@ -367,7 +370,8 @@ export const SchoolRepresentativeChat: React.FC<SchoolRepresentativeChatProps> =
         text, 
         {
           name: visitorIdentity.visitorName,
-          phone: visitorIdentity.phone
+          phone: visitorIdentity.phone,
+          language: chatLanguage
         },
         attachmentToSend || undefined
       );
@@ -632,6 +636,59 @@ export const SchoolRepresentativeChat: React.FC<SchoolRepresentativeChatProps> =
           </span>
         </div>
       </div>
+
+      {/* Multilingual Admissions Concierge Selector Bar */}
+      <div className="bg-neutral-100/90 px-3 py-1.5 border-b border-neutral-200 flex items-center justify-between gap-1 overflow-x-auto text-[10px] scrollbar-none">
+        <span className="text-neutral-500 font-bold uppercase shrink-0">Language:</span>
+        <div className="flex items-center gap-1 shrink-0">
+          {[
+            { id: 'en', label: 'English' },
+            { id: 'yo', label: 'Èdè Yorùbá' },
+            { id: 'fr', label: 'Français' },
+            { id: 'ha', label: 'Hausa' },
+            { id: 'ig', label: 'Asụsụ Igbo' }
+          ].map(lang => (
+            <button
+              key={lang.id}
+              type="button"
+              onClick={() => setChatLanguage(lang.id as any)}
+              className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
+                chatLanguage === lang.id
+                  ? 'bg-neutral-900 text-white shadow-2xs'
+                  : 'bg-white/80 text-neutral-700 hover:bg-white'
+              }`}
+            >
+              {lang.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Microphone Permission Fallback Notification Banner */}
+      {micPermissionDenied && (
+        <div className="px-3.5 py-2 bg-amber-50 border-b border-amber-200 text-amber-950 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Microphone unavailable or blocked. You can upload an audio file directly instead.</span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold cursor-pointer transition"
+            >
+              Attach Audio File
+            </button>
+            <button
+              type="button"
+              onClick={() => setMicPermissionDenied(false)}
+              className="text-amber-800 hover:text-amber-950 text-[11px] p-1 cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3. Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-neutral-100/50">
@@ -1098,6 +1155,7 @@ export const SchoolRepresentativeChat: React.FC<SchoolRepresentativeChatProps> =
               value={inputText}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={() => setTimeout(scrollToBottom, 200)}
               placeholder={`Message ${effectiveRepName} or ask Calvin AI...`}
               disabled={isThinking}
               className="flex-1 px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 bg-neutral-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition"

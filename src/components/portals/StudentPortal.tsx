@@ -33,7 +33,8 @@ import {
   Upload,
   HeartPulse,
   MessageSquare,
-  CreditCard
+  CreditCard,
+  Sparkles
 } from '../RealIcons';
 import { HistoricalSessionRecord, HistoricalTermRecord, GradeRecord, Homework } from '../../types';
 import { generateStudentHistoricalRecords } from '../../data/schoolData';
@@ -41,6 +42,7 @@ import { PortalLoginPage } from '../PortalLoginPage';
 import { StudentLessonNotesTab } from './student/StudentLessonNotesTab';
 import { StudentCbtTab } from './student/StudentCbtTab';
 import { StudentLibraryTab } from './student/StudentLibraryTab';
+import { VirtualScienceLab } from './VirtualScienceLab';
 import { StudentTimetableTab } from './student/StudentTimetableTab';
 import { StudentSickBayTab } from './student/StudentSickBayTab';
 import { StudentIdCardModal } from './student/StudentIdCardModal';
@@ -135,7 +137,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
     );
   }
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'calvin_ai' | 'notes' | 'cbt' | 'library' | 'homework' | 'grades' | 'timetable' | 'sickbay' | 'gallery'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'calvin_ai' | 'notes' | 'cbt' | 'library' | 'sciencelab' | 'homework' | 'grades' | 'timetable' | 'sickbay' | 'gallery'>('overview');
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
   const [isIdCardOpen, setIsIdCardOpen] = useState(false);
 
@@ -539,10 +541,18 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
     { 
       id: 'library' as const, 
       label: 'Digital Library & E-Textbooks', 
-      badge: 'E-Library',
+      badge: 'E-Library Lounge',
       badgeColor: 'bg-blue-400/20 text-blue-300 border-blue-400/30',
       icon: BookOpen,
-      description: 'Curriculum textbooks, past question compendiums, and revision digests'
+      description: 'Curriculum textbooks, reading lounge, audiobooks, and revision digests'
+    },
+    { 
+      id: 'sciencelab' as const, 
+      label: 'Virtual Science Lab Simulator', 
+      badge: 'WAEC Practicals',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      icon: Sparkles,
+      description: 'Hands-on practical experiments for Chemistry Titration, Physics Pendulum & Biology Starch'
     },
     { 
       id: 'homework' as const, 
@@ -1363,6 +1373,11 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
         {/* TAB: DIGITAL LIBRARY & E-TEXTBOOKS */}
         {activeTab === 'library' && (
           <StudentLibraryTab />
+        )}
+
+        {/* TAB: VIRTUAL SCIENCE PRACTICAL SIMULATOR */}
+        {activeTab === 'sciencelab' && (
+          <VirtualScienceLab />
         )}
 
         {/* TAB 2: DAILY HOMEWORK */}

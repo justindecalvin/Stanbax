@@ -7,6 +7,8 @@ export type PageSection =
   | 'calendar'
   | 'news-blog'
   | 'notices'
+  | 'achievements'
+  | 'house-championship'
   | 'contact'
   | 'gallery'
   | 'proprietress'
@@ -191,6 +193,7 @@ export interface StudentProfile {
   gender: 'Male' | 'Female';
   dateOfBirth?: string;
   passportPhoto?: string;
+  term?: string;
   parentName: string;
   parentPhone: string;
   emergencyPhone?: string;
@@ -949,6 +952,8 @@ export interface FeePaymentRecord {
   verifiedBy?: string;
   rejectedBy?: string;
 }
+
+export type FeePayment = FeePaymentRecord;
 
 // 5. Digital Library & E-Textbook Repository
 export interface LibraryBookItem {

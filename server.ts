@@ -120,6 +120,7 @@ interface AssessmentResponse {
   }>;
   paperSavingText: string;
   markingGuide: string;
+  difficulty?: string;
 }
 
 // Deterministic Curriculum Generator Fallback (guarantees instantaneous, rich, paper-saving output even without API key)
@@ -1057,6 +1058,15 @@ MANDATORY: Synthesize questions directly testing these weekly topics and objecti
 - Specific Topics/Scope: ${curriculumTopics || (schemeContext ? 'Grounded in uploaded Scheme of Work' : 'Full term syllabus')}
 - Assessment Preset: ${presetType || assessmentType} (WAEC / JAMB / BECE / School Quiz)
 - Difficulty standard: ${difficulty}
+- COGNITIVE RIGOR GUIDELINE: ${
+  difficulty.toLowerCase().includes('easy') || difficulty.toLowerCase().includes('foundational') || difficulty.toLowerCase().includes('remedial')
+    ? 'FOUNDATIONAL / EASY: Questions must emphasize fundamental definitions, direct conceptual recall, simple clear examples, high accessibility, and basic vocabulary. Distractors should be distinct and not overly tricky.'
+    : difficulty.toLowerCase().includes('advanced') || difficulty.toLowerCase().includes('distinction')
+    ? 'ADVANCED / DISTINCTION: Questions must test higher-order thinking (Bloom Analysis & Evaluation), multi-step problem solving, nuanced distractors that eliminate guesswork, and rigorous analytical questions in theory.'
+    : difficulty.toLowerCase().includes('olympiad') || difficulty.toLowerCase().includes('challenge') || difficulty.toLowerCase().includes('competition')
+    ? 'OLYMPIAD / CHALLENGE: Questions must be exceptionally challenging, requiring non-routine problem solving, interdisciplinary synthesis, proofs, and deep mathematical or analytical reasoning worthy of national scholarship decathlons.'
+    : 'STANDARD WAEC/BECE: Balanced syllabus distribution adhering strictly to official WAEC / NECO / BECE / Cambridge standard distribution (30% recall, 40% comprehension & application, 30% analysis).'
+}
 - Required Objective Questions: ${expectedObjCount} ${presetType === 'waec' ? '(Full 50 WAEC Standard)' : presetType === 'jamb' ? '(JAMB UTME CBT Standard)' : ''}
 - Required Theory Questions: ${expectedTheoryCount} ${presetType === 'waec' ? '(Section B: 6 WAEC Theory Questions, Answer 4)' : presetType === 'jamb' ? '(0 Theory for JAMB CBT)' : ''}
 ${tutorInstructionsContext}
@@ -1158,6 +1168,7 @@ CRITICAL FORMATTING RULE: ZERO ASTERISKS! Do not use *word* or **word**. Use CAP
         if (parsedData.markingGuide) {
           parsedData.markingGuide = sanitizeStudentFriendlyText(parsedData.markingGuide);
         }
+        parsedData.difficulty = difficulty;
       }
 
       return res.json({ success: true, source: "gemini_ai", modelUsed, data: parsedData });
@@ -1621,8 +1632,25 @@ CRITICAL STUDENT-FRIENDLY FORMATTING RULES (STRICTLY ENFORCED):
     visitorName: string,
     repName: string,
     repTitle: string,
-    repRole: string
+    repRole: string,
+    language: string = "en"
   ): string {
+    if (language === 'yo') {
+      return `Ẹ ku aarọ o, ${visitorName}! Ẹ ṣeun pupọ fun ifọwọsowọpọ pẹlu Ile-Iwe Stanbax Schools Ibadan.\n\n${repName} (${repTitle}) n ṣe ayẹwo awọn agbegbe ile-iwe lọwọlọwọ, nitori naa emi ni Calvin AI, aṣoju foju osise fun Stanbax Schools.\n\nA ni inudidun lati ran ẹbi yin lọwọ pẹlu:\n• Iforukọsilẹ fun akoko ẹkọ tuntun (Admissions lati Creche de SSS 3)\n• Eto owo ile-iwe ati eto isanwo rọrun (Flexible Bursary installment plans)\n• Eto ẹkọ apapọ ti Ilu Gẹẹsi ati Naijiria (British-Nigerian Dual Curriculum)\n• Awọn ọkọ akero ile-iwe to ni itutu (Air-conditioned School Bus Fleet)\n\nIbeere yin wa ni ifipamọ ninu eto wa, ${repName} yoo si dahun taara ni kete ti o ba pada si tabili iṣẹ!`;
+    }
+
+    if (language === 'fr') {
+      return `Bonjour ${visitorName}! Merci d'avoir contacté Stanbax Schools Ibadan.\n\n${repName} (${repTitle}) supervise actuellement les installations du campus. Je suis Calvin AI, le représentant virtuel officiel de l'école Stanbax.\n\nNous serions ravis d'assister votre famille pour:\n• Les admissions ouvertes de la crèche au secondaire supérieur (SSS 3)\n• Le double programme intégré britannique et nigérian (WAEC, NECO et Cambridge IGCSE)\n• La grille tarifaire transparente et les versements échelonnés\n• Le réseau de transport scolaire sécurisé et climatisé à travers Ibadan\n\nVotre message est bien enregistré et ${repName} vous répondra dès son retour!`;
+    }
+
+    if (language === 'ha') {
+      return `Sannu ${visitorName}! Mun gode da tuntuɓar Stanbax Schools Ibadan.\n\n${repName} (${repTitle}) na gudanar da ayyukan makaranta a halin yanzu, don haka ni ne Calvin AI, wakilin makarantar na musamman.\n\nMuna farin cikin taimaka muku game da:\n• Bude shiga makaranta (Admissions daga Creche zuwa SSS 3)\n• Kudin makaranta mai sauki da biyan kashi-kashi\n• Tsarin koyarwa na Najeriya da na Cambridge na Birtaniya\n• Motocin makaranta masu sanyaya zuciya a fadin Ibadan\n\nAn adana sakonku lafiya, kuma ${repName} zai duba shi ya ba ku amsa!`;
+    }
+
+    if (language === 'ig') {
+      return `Nnọọ ${visitorName}! Daalụ maka ịkpọtụrụ Stanbax Schools Ibadan.\n\n${repName} (${repTitle}) nọ na-elekọta ihe omume ụlọ akwụkwọ ugbu a, yabụ abụ m Calvin AI, onye nnọchiteanya ụlọ akwụkwọ Stanbax.\n\nObi dị anyị ụtọ inyere ezinụlọ gị aka gbasara:\n• Nnabata ụmụ akwụkwọ ọhụrụ (Admissions site na Creche ruo SSS 3)\n• Usoro ego ụlọ akwụkwọ doro anya na ịkwụ ụgwọ nwayọọ nwayọọ\n• Usoro ọmụmụ jikọtara ọnụ nke British na Nigeria (Cambridge na WAEC)\n• Ụgbọ ala ụlọ akwụkwọ nwere ntụ oyi na-echebe ụmụ akwụkwọ\n\nEchekwala ozi gị nke ọma, ${repName} ga-eleba anya na ya ma zaghachi gị ngwa ngwa!`;
+    }
+
     const m = message.toLowerCase();
     
     if (m.includes('fee') || m.includes('cost') || m.includes('price') || m.includes('tuition') || m.includes('pay') || m.includes('bursar') || m.includes('account')) {
@@ -1652,6 +1680,7 @@ CRITICAL STUDENT-FRIENDLY FORMATTING RULES (STRICTLY ENFORCED):
       repName = "Mrs. Bello",
       repTitle = "School Principal & Head of Administration",
       repRole = "principal",
+      language = "en",
       chatHistory = []
     } = req.body;
 
@@ -1662,7 +1691,7 @@ CRITICAL STUDENT-FRIENDLY FORMATTING RULES (STRICTLY ENFORCED):
     const ai = getGeminiClient();
 
     if (!ai) {
-      const fallbackReply = generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole);
+      const fallbackReply = generateVisitorRepFallback(message, visitorName, repName, repTitle, repRole, language);
       return res.json({
         success: true,
         reply: fallbackReply,
@@ -1691,6 +1720,11 @@ YOUR PRIMARY GOALS:
    - Courteous, professional, warm, and articulate.
    - Reassure the visitor that their full query and this transcript are retained and that ${repName} will review it upon returning to the desk and can follow up directly.
    - Keep answers easy to read on mobile (short paragraphs or clear bullet points).
+
+${language === 'yo' ? 'CRITICAL LANGUAGE REQUIREMENT: The user selected YORUBA. You MUST write your entire answer in polite, warm, and natural Yoruba (Èdè Yorùbá), addressing the visitor with respect (Ẹ ku aarọ/ọsan, Ẹ ṣeun pupọ).' : ''}
+${language === 'fr' ? 'CRITICAL LANGUAGE REQUIREMENT: The user selected FRENCH. You MUST write your entire answer in fluent, courteous French (Français).' : ''}
+${language === 'ha' ? 'CRITICAL LANGUAGE REQUIREMENT: The user selected HAUSA. You MUST write your entire answer in polite, natural Hausa (Harshen Hausa).' : ''}
+${language === 'ig' ? 'CRITICAL LANGUAGE REQUIREMENT: The user selected IGBO. You MUST write your entire answer in warm, respectful Igbo (Asụsụ Igbo).' : ''}
 
 CRITICAL FORMATTING RULES:
 - NEVER use markdown hash symbols (#, ##, ###) for headers or titles.

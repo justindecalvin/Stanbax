@@ -80,6 +80,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: 'Academic Calendar', section: 'calendar' },
     { label: 'News & Blog', section: 'news-blog' },
     { label: 'Notices', section: 'notices' },
+    { label: 'Scholar Awards', section: 'achievements' },
+    { label: 'House Championship', section: 'house-championship' },
     { label: 'Contact', section: 'contact' }
   ];
 
