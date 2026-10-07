@@ -12,11 +12,20 @@ import {
   Award, 
   ChevronRight, 
   Upload,
-  School as SchoolIcon 
+  School as SchoolIcon,
+  Database,
+  Cloud,
+  Globe,
+  ExternalLink,
+  Copy,
+  Check
 } from '../../RealIcons';
 import { SchoolLogo } from '../../SchoolLogo';
 import { compressImageFile } from '../../../utils/imageUploadHelper';
 import { DEFAULT_IMAGES } from '../../../data/schoolData';
+import { isRemoteEnabled } from '../../../lib/supabase';
+import { NetlifyCloudSyncModal } from './NetlifyCloudSyncModal';
+import schemaSql from '../../../../supabase/schema.sql?raw';
 
 export const AdminSchoolSettingsTab: React.FC = () => {
   const { 
@@ -90,6 +99,9 @@ export const AdminSchoolSettingsTab: React.FC = () => {
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [copiedVar, setCopiedVar] = useState<string | null>(null);
+  const [copiedSchema, setCopiedSchema] = useState(false);
+  const [showSyncAssistant, setShowSyncAssistant] = useState(false);
 
   const handleSaveGeneralSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -563,6 +575,166 @@ export const AdminSchoolSettingsTab: React.FC = () => {
         </div>
       </form>
 
+      {/* Multi-Device Cloud Database Sync & Netlify Status */}
+      <div className={`p-6 sm:p-7 rounded-3xl border shadow-sm transition-all ${
+        isRemoteEnabled()
+          ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950'
+          : 'bg-gradient-to-br from-amber-50/90 via-stone-50 to-orange-50/80 border-amber-300 text-stone-900'
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 mb-4 border-stone-200/80">
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-md shrink-0 ${
+              isRemoteEnabled() ? 'bg-emerald-700 text-white' : 'bg-amber-600 text-white'
+            }`}>
+              <Database className="w-6 h-6 text-amber-200" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                  isRemoteEnabled()
+                    ? 'bg-emerald-200 text-emerald-900'
+                    : 'bg-amber-200 text-amber-950 border border-amber-300'
+                }`}>
+                  {isRemoteEnabled() ? 'Live Cloud Database Connected' : 'Offline / Single-Browser Mode'}
+                </span>
+                <span className="text-xs text-stone-500 font-bold">
+                  {isRemoteEnabled() ? 'Multi-Device Sync Active' : 'LocalStorage Cache Only'}
+                </span>
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-stone-900 mt-1">
+                {isRemoteEnabled()
+                  ? 'All Devices & Browsers Are Synchronized in Real-Time'
+                  : 'Why changes do not appear on other browsers & How to fix on Netlify'}
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowSyncAssistant(true)}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>Cloud Sync Assistant</span>
+            </button>
+            <a
+              href="https://supabase.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+            >
+              <span>Supabase Dashboard</span>
+              <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+            </a>
+          </div>
+        </div>
+
+        {isRemoteEnabled() ? (
+          <div className="space-y-2 text-xs text-emerald-900">
+            <p className="font-semibold leading-relaxed">
+              Your Netlify deployment is connected to your central cloud database! Any student registered, grade entered, or exam published is instantly stored in PostgreSQL and accessible from every smartphone, tablet, or PC.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-2xl bg-amber-100/70 border border-amber-300 text-amber-950 leading-relaxed font-medium">
+              <strong>Why this happens:</strong> By default on Netlify, website data is saved into your current browser’s temporary storage (<code className="font-mono bg-white px-1 py-0.5 rounded">localStorage</code>). When you register a new student or make changes, it only exists on that specific browser. To make all data visible on every browser, phone, and computer, connect your free Supabase PostgreSQL database.
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-black text-stone-900 text-xs uppercase tracking-wider">
+                Quick 3-Minute Setup on Netlify:
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-2xl bg-white border border-stone-200 space-y-1.5 shadow-2xs">
+                  <span className="font-black text-amber-700 block text-xs">Step 1: Free Supabase Project</span>
+                  <p className="text-stone-600 leading-snug">
+                    Go to <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold">supabase.com</a>, create a free account, and create a new project.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-stone-200 space-y-1.5 shadow-2xs">
+                  <span className="font-black text-amber-700 block text-xs">Step 2: Run Database Schema</span>
+                  <p className="text-stone-600 leading-snug">
+                    Open Supabase <strong>SQL Editor</strong>, paste <code className="font-mono text-purple-700 font-bold">schema.sql</code>, and click <strong>Run</strong> once.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(schemaSql);
+                      setCopiedSchema(true);
+                      setTimeout(() => setCopiedSchema(false), 2500);
+                    }}
+                    className="w-full mt-2 py-1 px-2 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {copiedSchema ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-amber-300" />}
+                    <span>{copiedSchema ? 'SQL Schema Copied!' : 'Copy SQL Schema'}</span>
+                  </button>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white border border-stone-200 space-y-1.5 shadow-2xs">
+                  <span className="font-black text-amber-700 block text-xs">Step 3: Add Variables & Deploy</span>
+                  <p className="text-stone-600 leading-snug">
+                    In your Netlify Dashboard: <strong>Site settings → Environment variables</strong>. Add the 2 variables below and click <strong>Trigger deploy</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Environment Variable Copy Boxes */}
+              <div className="p-4 rounded-2xl bg-stone-900 text-stone-100 space-y-3 shadow-inner">
+                <span className="font-mono text-[11px] text-amber-400 font-bold block uppercase tracking-wider">
+                  Netlify Environment Variables to Add:
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                  <div className="p-2.5 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] text-stone-400 block font-sans font-bold">Variable 1 Name</span>
+                      <span className="text-emerald-400 font-bold">VITE_SUPABASE_URL</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText('VITE_SUPABASE_URL');
+                        setCopiedVar('VITE_SUPABASE_URL');
+                        setTimeout(() => setCopiedVar(null), 2000);
+                      }}
+                      className="px-2 py-1 rounded bg-stone-700 hover:bg-stone-600 text-white text-[10px] font-sans font-bold cursor-pointer"
+                    >
+                      {copiedVar === 'VITE_SUPABASE_URL' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] text-stone-400 block font-sans font-bold">Variable 2 Name</span>
+                      <span className="text-emerald-400 font-bold">VITE_SUPABASE_ANON_KEY</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText('VITE_SUPABASE_ANON_KEY');
+                        setCopiedVar('VITE_SUPABASE_ANON_KEY');
+                        setTimeout(() => setCopiedVar(null), 2000);
+                      }}
+                      className="px-2 py-1 rounded bg-stone-700 hover:bg-stone-600 text-white text-[10px] font-sans font-bold cursor-pointer"
+                    >
+                      {copiedVar === 'VITE_SUPABASE_ANON_KEY' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-stone-400 font-sans">
+                  Obtain these values from your Supabase Dashboard: Project Settings → <strong>API</strong> (Project URL and Anon / Public API Key).
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Start New Term / Set Date Modal */}
       {newTermModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
@@ -649,6 +821,12 @@ export const AdminSchoolSettingsTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Cloud Sync Setup & Data Migration Assistant Modal */}
+      <NetlifyCloudSyncModal
+        isOpen={showSyncAssistant}
+        onClose={() => setShowSyncAssistant(false)}
+      />
     </div>
   );
 };

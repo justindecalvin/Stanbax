@@ -15,8 +15,11 @@ import {
   PlusCircle, 
   BookOpen, 
   ArrowRight,
-  Filter
+  Filter,
+  Database
 } from '../../RealIcons';
+import { isRemoteEnabled } from '../../../lib/supabase';
+import { NetlifyCloudSyncModal } from './NetlifyCloudSyncModal';
 
 export const AdminStudentsAlumniTab: React.FC = () => {
   const { 
@@ -31,6 +34,7 @@ export const AdminStudentsAlumniTab: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | 'active' | 'alumni' | 'upgraded'>('all');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   // Upgrade confirmation modal
   const [studentToUpgrade, setStudentToUpgrade] = useState<StudentProfile | null>(null);
@@ -136,6 +140,30 @@ export const AdminStudentsAlumniTab: React.FC = () => {
           <span>Create New Tutor Account</span>
         </button>
       </div>
+
+      {/* Netlify Single Browser Mode Alert */}
+      {!isRemoteEnabled() && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in shadow-2xs">
+          <div className="flex items-start gap-3">
+            <Database className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-xs block text-amber-900">
+                Single-Browser Storage Active (Netlify Deployment Notice)
+              </span>
+              <p className="text-[11px] text-amber-800 leading-snug mt-0.5">
+                Scholars registered in this browser are stored in local memory only. To make new student registrations visible across every other browser, phone, and computer, connect your free Supabase database in Netlify Environment Variables.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSyncModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs self-start sm:self-auto"
+          >
+            How to Sync Across Devices
+          </button>
+        </div>
+      )}
 
       {/* Success / Error Alerts */}
       {successMsg && (
@@ -500,6 +528,12 @@ export const AdminStudentsAlumniTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Netlify Cloud Sync Modal */}
+      <NetlifyCloudSyncModal
+        isOpen={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+      />
     </div>
   );
 };

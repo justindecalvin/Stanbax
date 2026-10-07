@@ -49,7 +49,9 @@ import { AdminCampusGalleryTab } from './admin/AdminCampusGalleryTab';
 import { AdminVisitorInquiriesSubTab } from './admin/AdminVisitorInquiriesSubTab';
 import { SchoolChatSystem } from '../chat/SchoolChatSystem';
 import { SchoolPrefectBadgesModal } from '../chat/ChatLeadershipModals';
-import { Bot, Newspaper, Compass } from 'lucide-react';
+import { NetlifyCloudSyncModal } from './admin/NetlifyCloudSyncModal';
+import { isRemoteEnabled } from '../../lib/supabase';
+import { Bot, Newspaper, Compass, Database } from 'lucide-react';
 
 interface AdminPortalProps {
   onBackToWebsite: () => void;
@@ -99,6 +101,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite }) => 
   const [adminChatTab, setAdminChatTab] = useState<'rep_desk' | 'channels'>('rep_desk');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPrefectModal, setShowPrefectModal] = useState(false);
+  const [showCloudSyncModal, setShowCloudSyncModal] = useState(false);
 
   const handleLogout = () => {
     logoutAdmin();
@@ -158,7 +161,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite }) => 
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Multi-Device Cloud Sync Button */}
+          <button
+            type="button"
+            onClick={() => setShowCloudSyncModal(true)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer shadow-2xs border ${
+              isRemoteEnabled()
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-amber-100 text-amber-950 border-amber-300 hover:bg-amber-200 animate-pulse'
+            }`}
+            title={isRemoteEnabled() ? 'Cloud Database Synced across all devices' : 'Single-Browser Mode: Click to configure multi-device sync on Netlify'}
+          >
+            <Database className={`w-3.5 h-3.5 ${isRemoteEnabled() ? 'text-emerald-600' : 'text-amber-700'}`} />
+            <span className="hidden sm:inline">
+              {isRemoteEnabled() ? 'Cloud Synced' : 'Multi-Device Sync (Netlify)'}
+            </span>
+            <span className="sm:hidden">
+              {isRemoteEnabled() ? 'Synced' : 'Sync'}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowPrefectModal(true)}
@@ -514,6 +537,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite }) => 
           onClose={() => setShowPrefectModal(false)}
         />
       )}
+
+      {/* Netlify & Multi-Device Cloud Sync Assistant Modal */}
+      <NetlifyCloudSyncModal
+        isOpen={showCloudSyncModal}
+        onClose={() => setShowCloudSyncModal(false)}
+      />
     </div>
   );
 };

@@ -22,6 +22,8 @@ import {
 } from './RealIcons';
 import { useSchool } from '../context/SchoolContext';
 import { StudentProfile } from '../types';
+import { isRemoteEnabled } from '../lib/supabase';
+import { Database } from 'lucide-react';
 
 interface StudentRegistrationModalProps {
   isOpen: boolean;
@@ -346,6 +348,26 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                   </div>
                 </div>
               </div>
+
+              {/* Multi-Device Cloud Sync Reminder */}
+              {!isRemoteEnabled() ? (
+                <div className="max-w-md mx-auto p-3 rounded-2xl bg-amber-50 border border-amber-300 text-left text-amber-950 text-xs space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-amber-900">
+                    <Database className="w-4 h-4 text-amber-700" />
+                    <span>Single-Browser Mode (Netlify Deployment Notice)</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-800">
+                    This new scholar is currently saved in this browser. To make this scholar and all future registrations visible on every other browser, phone, and computer, connect your free Supabase database in Netlify Environment Variables (Admin Portal → School Settings → Cloud Sync).
+                  </p>
+                </div>
+              ) : (
+                <div className="max-w-md mx-auto p-2.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-left text-emerald-950 text-xs flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+                  <span className="text-[11px] font-semibold">
+                    Synced to Cloud Database — This scholar is accessible from any phone, laptop, or browser.
+                  </span>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
