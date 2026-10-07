@@ -7,6 +7,7 @@ import {
   remoteLogout,
   remoteCreateCredential,
   remoteChangePassword,
+  remoteCheckCredentials,
 } from '../lib/supabase';
 import { 
   AppImages, 
@@ -365,7 +366,7 @@ interface SchoolContextType {
   }) => TutorProfile;
 
   // 13C. Password Management & Admin Security Vault
-  changePassword: (userRole: UserRole, currentPass: string, newPass: string, userId?: string) => { success: boolean; message: string };
+  changePassword: (userRole: UserRole, currentPass: string, newPass: string, userId?: string) => Promise<{ success: boolean; message: string }>;
   forgotPasswordReset: (identifier: string, newPassword: string) => { success: boolean; message: string; role?: UserRole };
   getSecurityQuestionForUser: (identifier: string) => {
     exists: boolean;
@@ -381,7 +382,7 @@ interface SchoolContextType {
     role?: UserRole;
   };
   getAllUserCredentials: () => UserCredentialItem[];
-  adminResetUserPassword: (userId: string, userRole: UserRole, newPassword: string) => boolean;
+  adminResetUserPassword: (userId: string, userRole: UserRole, newPassword: string) => Promise<boolean>;
   adminSecurityQuestion: string;
   adminSecurityAnswer: string;
   updateAdminSecurityQuestion: (question: string, answer: string) => { success: boolean; message: string };
@@ -1896,9 +1897,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const tutor = tutors.find(t => t.id === activeTutorId) || tutors[0] || DEMO_TUTOR;
 
   const updateTutor = (id: string, updatedData: Partial<TutorProfile>) => {
-    if (updatedData.password) {
-      void remoteChangePassword(id, null, updatedData.password);
-    }
     setTutors(prev => {
       const updated = prev.map(t => t.id === id ? { ...t, ...updatedData } : t);
       try {
@@ -2186,9 +2184,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateStudent = (id: string, updatedData: Partial<StudentProfile>) => {
-    if (updatedData.password) {
-      void remoteChangePassword(id, null, updatedData.password);
-    }
     setStudents(prev => {
       const updated = prev.map(s => {
         if (s.id !== id) return s;
@@ -3062,6 +3057,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // database is the source of truth (passwords are hashed, checked via RPC).
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(cleanId, cleanPass);
+      if (res.unreachable) {
+        return { success: false, message: 'Supabase could not verify this login. Check your connection and try again.' };
+      }
       if (!res.unreachable) {
         if (!res.ok) {
           return { success: false, message: res.message || 'Invalid credentials.' };
@@ -3158,7 +3156,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           isAlumni: !!matchedStudent?.isAlumni,
         };
       }
-      // unreachable → fall through to local demo credentials below
     }
 
     // 1. Check Administrator
@@ -3376,6 +3373,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!isUserValid) return false;
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(trimmedUser, pass);
+      if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'admin') return false;
         setIsAdminAuthenticated(true);
@@ -3413,6 +3411,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!isUserValid) return false;
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(trimmedUser, pass);
+      if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'proprietress') return false;
         setIsProprietressAuthenticated(true);
@@ -3456,6 +3455,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!isUserValid) return false;
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(trimmedUser, pass);
+      if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'headmistress') return false;
         clearOtherRoles('headmistress');
@@ -3505,6 +3505,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(trimmedUser, pass);
+      if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'moderator') return false;
         clearOtherRoles('moderator');
@@ -3566,6 +3567,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(cleanId, pass);
+      if (res.unreachable) {
+        return { success: false, message: 'Supabase could not verify this login. Check your connection and try again.' };
+      }
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'tutor') {
           return { success: false, message: res.message || 'Incorrect staff credentials. Please check your password.' };
@@ -3646,6 +3650,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(identifier.trim(), pin);
+      if (res.unreachable) {
+        return { success: false, message: 'Supabase could not verify this login. Check your connection and try again.' };
+      }
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'student') {
           return { success: false, message: res.message || 'Incorrect scholar portal password.' };
@@ -3731,6 +3738,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (isRemoteEnabled()) {
       const res = await remoteVerifyLogin(cleanId, cleanPass);
+      if (res.unreachable) {
+        return { success: false, message: 'Supabase could not verify this login. Check your connection and try again.' };
+      }
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'parent') {
           return { success: false, message: res.message || 'Incorrect parent portal password.' };
@@ -3932,68 +3942,81 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // 13E. Password Management for All Roles
-  const changePassword = (
+  const changePassword = async (
     userRole: UserRole,
     currentPass: string,
     newPass: string,
     userId?: string
-  ): { success: boolean; message: string } => {
+  ): Promise<{ success: boolean; message: string }> => {
     if (!newPass || newPass.length < 6) {
       return { success: false, message: 'New password must be at least 6 characters long.' };
     }
 
-    if (userRole === 'admin') {
-      if (!isAdminPasswordValid(currentPass)) {
-        return { success: false, message: 'Current administrator password is incorrect.' };
-      }
-      setAdminPassword(newPass);
-      localStorage.setItem('stanbax_admin_password', newPass);
-      void remoteChangePassword('admin', currentPass, newPass);
-      return { success: true, message: 'Administrator password successfully updated!' };
+    if (!isRemoteEnabled()) {
+      return { success: false, message: 'Password changes require an active Supabase connection.' };
     }
 
-    if (userRole === 'proprietress') {
-      if (!isProprietressPasswordValid(currentPass)) {
-        return { success: false, message: 'Current proprietress password is incorrect.' };
-      }
-      setProprietressPassword(newPass);
-      localStorage.setItem('stanbax_proprietress_password', newPass);
-      void remoteChangePassword('proprietress', currentPass, newPass);
-      return { success: true, message: 'Proprietress password successfully updated!' };
+    const accountByRole: Partial<Record<UserRole, { id: string; role: string }>> = {
+      admin: { id: 'admin', role: 'admin' },
+      proprietress: { id: 'proprietress', role: 'proprietress' },
+      headmistress: { id: 'headmistress', role: 'headmistress' },
+      moderator: { id: userId || activeModeratorId, role: 'moderator' },
+      tutor: { id: userId || activeTutorId, role: 'tutor' },
+      student: { id: userId || activeStudentId, role: 'student' },
+      parent: { id: userId || activeParentId, role: 'parent' },
+    };
+    const account = accountByRole[userRole];
+    if (!account) return { success: false, message: 'This account role cannot change passwords here.' };
+
+    const verified = await remoteCheckCredentials(account.id, currentPass, account.role, account.id);
+    if (!verified.ok) {
+      return {
+        success: false,
+        message: verified.message || 'Current password could not be verified in Supabase.',
+      };
     }
 
-    if (userRole === 'tutor') {
-      const targetId = userId || activeTutorId;
-      const targetTutor = tutors.find(t => t.id === targetId);
-      if (!targetTutor) {
-        return { success: false, message: 'Tutor account not found.' };
-      }
-      const currentStored = targetTutor.password || 'stanbax2025';
-      if (currentPass !== currentStored && currentPass !== 'stanbax2025') {
-        return { success: false, message: 'Current tutor password is incorrect.' };
-      }
-      updateTutor(targetId, { password: newPass });
-      return { success: true, message: 'Faculty password successfully updated!' };
+    const changed = await remoteChangePassword(account.id, currentPass, newPass);
+    if (!changed.ok) {
+      return { success: false, message: changed.message || 'Supabase did not save the new password.' };
     }
 
-    if (userRole === 'student') {
-      const targetId = userId || activeStudentId;
-      const targetStudent = students.find(s => s.id === targetId);
-      if (!targetStudent) {
-        return { success: false, message: 'Student account not found.' };
-      }
-      const currentStored = targetStudent.password || 'stanbax2025';
-      if (currentPass !== currentStored && currentPass !== 'stanbax2025') {
-        return { success: false, message: 'Current student password is incorrect.' };
-      }
-      updateStudent(targetId, { password: newPass });
-      return { success: true, message: 'Scholar portal password successfully updated!' };
+    // Keep the in-memory view current. The storage interceptor prevents these
+    // legacy plaintext credential properties from being persisted locally.
+    switch (userRole) {
+      case 'admin':
+        setAdminPassword(newPass);
+        localStorage.removeItem('stanbax_admin_password');
+        break;
+      case 'proprietress':
+        setProprietressPassword(newPass);
+        localStorage.removeItem('stanbax_proprietress_password');
+        break;
+      case 'headmistress':
+        setHeadmistressPassword(newPass);
+        localStorage.removeItem('stanbax_headmistress_password');
+        break;
+      case 'moderator':
+        setModeratorPassword(newPass);
+        localStorage.removeItem('stanbax_moderator_password');
+        break;
+      case 'tutor':
+        updateTutor(account.id, { password: newPass });
+        break;
+      case 'student':
+        updateStudent(account.id, { password: newPass });
+        break;
+      case 'parent':
+        updateParent(account.id, { password: newPass });
+        break;
     }
-
-    return { success: false, message: 'Invalid user role.' };
+    return { success: true, message: 'Password updated in Supabase.' };
   };
 
   const forgotPasswordReset = (identifier: string, newPassword: string): { success: boolean; message: string; role?: UserRole } => {
+    if (isRemoteEnabled()) {
+      return { success: false, message: 'Password recovery is not yet configured in Supabase. Ask an administrator to reset this account from the credentials page.' };
+    }
     const cleanId = identifier.trim().toLowerCase();
     if (!cleanId) return { success: false, message: 'Please enter your username, email, Reg No, or Staff ID.' };
     if (!newPassword || newPassword.length < 6) return { success: false, message: 'New password must be at least 6 characters long.' };
@@ -4145,6 +4168,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     securityAnswer: string,
     newPassword: string
   ): { success: boolean; message: string; role?: UserRole } => {
+    if (isRemoteEnabled()) {
+      return { success: false, message: 'Security-question recovery is not configured in Supabase. Ask an administrator to reset this account from the credentials page.' };
+    }
     const cleanId = identifier.trim().toLowerCase();
     const cleanAnswer = securityAnswer.trim().toLowerCase();
     const cleanPass = newPassword.trim();
@@ -4331,33 +4357,40 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return list;
   };
 
-  const adminResetUserPassword = (userId: string, userRole: UserRole, newPassword: string): boolean => {
-    if (!newPassword || newPassword.length < 4) return false;
-    if (userRole === 'admin') {
-      setAdminPassword(newPassword);
-      localStorage.setItem('stanbax_admin_password', newPassword);
-      void remoteChangePassword('admin', null, newPassword);
-      return true;
+  const adminResetUserPassword = async (userId: string, userRole: UserRole, newPassword: string): Promise<boolean> => {
+    if (!newPassword || newPassword.length < 6 || !isRemoteEnabled()) return false;
+    const result = await remoteChangePassword(userId, null, newPassword);
+    if (!result.ok) return false;
+    switch (userRole) {
+      case 'admin':
+        setAdminPassword(newPassword);
+        localStorage.removeItem('stanbax_admin_password');
+        break;
+      case 'proprietress':
+        setProprietressPassword(newPassword);
+        localStorage.removeItem('stanbax_proprietress_password');
+        break;
+      case 'headmistress':
+        setHeadmistressPassword(newPassword);
+        localStorage.removeItem('stanbax_headmistress_password');
+        break;
+      case 'moderator':
+        setModeratorPassword(newPassword);
+        localStorage.removeItem('stanbax_moderator_password');
+        break;
+      case 'tutor':
+        updateTutor(userId, { password: newPassword });
+        break;
+      case 'student':
+        updateStudent(userId, { password: newPassword });
+        break;
+      case 'parent':
+        updateParent(userId, { password: newPassword });
+        break;
+      default:
+        return false;
     }
-    if (userRole === 'proprietress') {
-      setProprietressPassword(newPassword);
-      localStorage.setItem('stanbax_proprietress_password', newPassword);
-      void remoteChangePassword('proprietress', null, newPassword);
-      return true;
-    }
-    if (userRole === 'tutor') {
-      updateTutor(userId, { password: newPassword });
-      return true;
-    }
-    if (userRole === 'student') {
-      updateStudent(userId, { password: newPassword });
-      return true;
-    }
-    if (userRole === 'parent') {
-      updateParent(userId, { password: newPassword });
-      return true;
-    }
-    return false;
+    return true;
   };
 
   // 14. Teacher Lesson Notes & Academic Materials
@@ -5168,9 +5201,6 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateParent = (id: string, updatedData: Partial<ParentProfile>) => {
-    if (updatedData.password) {
-      void remoteChangePassword(id, null, updatedData.password);
-    }
     setParents(prev => {
       const updated = prev.map(p => p.id === id ? { ...p, ...updatedData } : p);
       try {

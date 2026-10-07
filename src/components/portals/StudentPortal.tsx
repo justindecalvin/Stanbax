@@ -2256,7 +2256,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
             )}
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 setStudentPassMsg(null);
                 if (!currentStudentPass.trim()) {
@@ -2271,7 +2271,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
                   setStudentPassMsg({ type: 'error', text: 'New passwords do not match.' });
                   return;
                 }
-                const res = changePassword('student', currentStudentPass, newStudentPass);
+                const res = await changePassword('student', currentStudentPass, newStudentPass);
                 if (res.success) {
                   setStudentPassMsg({ type: 'success', text: res.message });
                   setCurrentStudentPass('');

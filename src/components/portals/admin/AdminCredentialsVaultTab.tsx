@@ -85,7 +85,7 @@ export const AdminCredentialsVaultTab: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleAdminSelfChangePassword = (e: React.FormEvent) => {
+  const handleAdminSelfChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminPassMsg(null);
 
@@ -98,7 +98,7 @@ export const AdminCredentialsVaultTab: React.FC = () => {
       return;
     }
 
-    const res = changePassword('admin', currentAdminPass, newAdminPass);
+    const res = await changePassword('admin', currentAdminPass, newAdminPass);
     if (res.success) {
       setAdminPassMsg({ type: 'success', text: res.message });
       setCurrentAdminPass('');
@@ -109,18 +109,18 @@ export const AdminCredentialsVaultTab: React.FC = () => {
     }
   };
 
-  const handleConfirmUserReset = (e: React.FormEvent) => {
+  const handleConfirmUserReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserForReset || !resetNewPass.trim()) return;
 
-    const success = adminResetUserPassword(
+    const success = await adminResetUserPassword(
       selectedUserForReset.id, 
       selectedUserForReset.role, 
       resetNewPass.trim()
     );
 
     if (success) {
-      setResetSuccessMsg(`Password for ${selectedUserForReset.name} updated successfully to: ${resetNewPass}`);
+      setResetSuccessMsg(`Password for ${selectedUserForReset.name} was updated in Supabase.`);
       setTimeout(() => {
         setResetSuccessMsg('');
         setSelectedUserForReset(null);

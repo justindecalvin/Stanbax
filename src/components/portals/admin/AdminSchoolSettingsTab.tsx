@@ -23,7 +23,7 @@ import {
 import { SchoolLogo } from '../../SchoolLogo';
 import { compressImageFile } from '../../../utils/imageUploadHelper';
 import { DEFAULT_IMAGES } from '../../../data/schoolData';
-import { isRemoteEnabled } from '../../../lib/supabase';
+import { isRemoteEnabled, syncLocalSchoolStateToSupabase } from '../../../lib/supabase';
 import { NetlifyCloudSyncModal } from './NetlifyCloudSyncModal';
 import schemaSql from '../../../../supabase/schema.sql?raw';
 
@@ -102,6 +102,28 @@ export const AdminSchoolSettingsTab: React.FC = () => {
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
   const [copiedSchema, setCopiedSchema] = useState(false);
   const [showSyncAssistant, setShowSyncAssistant] = useState(false);
+  const [isSyncingBrowser, setIsSyncingBrowser] = useState(false);
+  const [browserSyncResult, setBrowserSyncResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleSyncThisBrowser = async () => {
+    if (!window.confirm(
+      'Upload this browser’s saved school records to Supabase? Existing cloud records with the same keys will be replaced by this browser’s data. Passwords and security answers are excluded. This cannot be automatically undone.'
+    )) return;
+
+    setIsSyncingBrowser(true);
+    setBrowserSyncResult(null);
+    try {
+      const result = await syncLocalSchoolStateToSupabase();
+      setBrowserSyncResult({ ok: result.ok, message: result.message });
+    } catch (error) {
+      setBrowserSyncResult({
+        ok: false,
+        message: error instanceof Error ? error.message : 'Could not sync this browser.',
+      });
+    } finally {
+      setIsSyncingBrowser(false);
+    }
+  };
 
   const handleSaveGeneralSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -612,6 +634,16 @@ export const AdminSchoolSettingsTab: React.FC = () => {
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
+              onClick={handleSyncThisBrowser}
+              disabled={!isRemoteEnabled() || isSyncingBrowser}
+              title={isRemoteEnabled() ? 'Upload this browser’s saved school records to Supabase' : 'Supabase is not configured'}
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-stone-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Cloud className="w-3.5 h-3.5" />
+              <span>{isSyncingBrowser ? 'Syncing…' : 'Sync This Browser to Supabase'}</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowSyncAssistant(true)}
               className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
@@ -629,6 +661,19 @@ export const AdminSchoolSettingsTab: React.FC = () => {
             </a>
           </div>
         </div>
+
+        {browserSyncResult && (
+          <div
+            role="status"
+            className={`mb-4 rounded-xl border px-4 py-3 text-xs font-semibold ${
+              browserSyncResult.ok
+                ? 'border-emerald-300 bg-emerald-100 text-emerald-900'
+                : 'border-red-300 bg-red-100 text-red-900'
+            }`}
+          >
+            {browserSyncResult.message}
+          </div>
+        )}
 
         {isRemoteEnabled() ? (
           <div className="space-y-2 text-xs text-emerald-900">

@@ -113,7 +113,7 @@ export const ProprietressPortal: React.FC<ProprietressPortalProps> = ({ onBackTo
     setTimeout(() => setDirectiveSuccess(''), 3500);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordMsg(null);
 
@@ -126,7 +126,7 @@ export const ProprietressPortal: React.FC<ProprietressPortalProps> = ({ onBackTo
       return;
     }
 
-    const res = changePassword('proprietress', currentPass, newPass);
+    const res = await changePassword('proprietress', currentPass, newPass);
     if (res.success) {
       setPasswordMsg({ type: 'success', text: res.message });
       setCurrentPass('');

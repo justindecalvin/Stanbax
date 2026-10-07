@@ -392,20 +392,20 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'message', 'Account not found.');
   END IF;
 
-  is_self := (lower(c.identifier) = lower(trim(p_identifier)) OR c.ref_id = v_ref);
+  -- Self is established by the authenticated session, never by the
+  -- caller-supplied identifier (which necessarily matches the selected row).
+  is_self := c.ref_id = v_ref AND c.role = v_role;
 
-  -- Strict Authorization Enforcement:
-  -- Non-admin users CANNOT reset other accounts' passwords and MUST provide correct old password.
-  IF NOT public.is_admin() THEN
-    IF NOT is_self THEN
-      INSERT INTO public.audit_logs (action, entity, actor_ref, actor_role, details)
-      VALUES ('SECURITY_VIOLATION_PASSWORD_CHANGE', 'credentials', v_ref, v_role, jsonb_build_object('target', p_identifier));
-      RETURN jsonb_build_object('ok', false, 'message', 'Unauthorized: You may only change your own password.');
-    END IF;
-
+  -- Self-service changes always verify the old password. Admins may reset
+  -- another user's password without their old password.
+  IF is_self THEN
     IF c.password_hash <> crypt(COALESCE(p_old_password, ''), c.password_hash) THEN
       RETURN jsonb_build_object('ok', false, 'message', 'Current password incorrect.');
     END IF;
+  ELSIF NOT public.is_admin() THEN
+    INSERT INTO public.audit_logs (action, entity, actor_ref, actor_role, details)
+    VALUES ('SECURITY_VIOLATION_PASSWORD_CHANGE', 'credentials', v_ref, v_role, jsonb_build_object('target', p_identifier));
+    RETURN jsonb_build_object('ok', false, 'message', 'Unauthorized: You may only change your own password.');
   END IF;
 
   UPDATE public.credentials
