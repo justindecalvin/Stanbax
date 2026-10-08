@@ -431,9 +431,10 @@ BEGIN
   -- caller-supplied identifier (which necessarily matches the selected row).
   is_self := c.ref_id = v_ref AND c.role = v_role;
 
-  -- Self-service changes always verify the old password. Admins may reset
-  -- another user's password without their old password.
-  IF is_self THEN
+  -- Self-service changes always provide and verify the old password.
+  -- The admin vault sends NULL for an override; only an active admin session
+  -- may use that path, including when resetting the administrator's own row.
+  IF is_self AND p_old_password IS NOT NULL THEN
     IF c.password_hash <> crypt(COALESCE(p_old_password, ''), c.password_hash) THEN
       RETURN jsonb_build_object('ok', false, 'message', 'Current password incorrect.');
     END IF;

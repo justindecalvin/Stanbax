@@ -382,7 +382,12 @@ interface SchoolContextType {
     role?: UserRole;
   };
   getAllUserCredentials: () => UserCredentialItem[];
-  adminResetUserPassword: (userId: string, userRole: UserRole, newPassword: string) => Promise<boolean>;
+  adminResetUserPassword: (
+    userId: string,
+    userRole: UserRole,
+    newPassword: string,
+    cloudIdentifier?: string
+  ) => Promise<{ success: boolean; message: string }>;
   adminSecurityQuestion: string;
   adminSecurityAnswer: string;
   updateAdminSecurityQuestion: (question: string, answer: string) => { success: boolean; message: string };
@@ -4254,6 +4259,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Admin
     list.push({
       id: 'usr-admin',
+      cloudIdentifier: 'admin',
       name: 'Chief Administrator & Registrar',
       role: 'admin',
       roleLabel: 'Administrator',
@@ -4268,6 +4274,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Proprietress
     list.push({
       id: 'usr-proprietress',
+      cloudIdentifier: 'proprietress',
       name: proprietressProfile.name || 'Mrs. Adebisi Folashade Bello',
       role: 'proprietress',
       roleLabel: 'Proprietress',
@@ -4282,6 +4289,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Head Mistress
     list.push({
       id: 'usr-headmistress',
+      cloudIdentifier: 'headmistress',
       name: headmistressProfile.name || 'Mrs. Funmilayo Adediran',
       role: 'headmistress',
       roleLabel: 'Head Mistress / Academic Principal',
@@ -4297,6 +4305,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     moderators.forEach(m => {
       list.push({
         id: `usr-${m.id}`,
+        cloudIdentifier: m.id,
         name: m.name,
         role: 'moderator',
         roleLabel: 'Community Moderator',
@@ -4313,6 +4322,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     tutors.forEach(t => {
       list.push({
         id: t.id,
+        cloudIdentifier: t.id,
         name: t.name,
         role: 'tutor',
         roleLabel: t.isUpgraded ? 'Associate Faculty (Scholar Tutor)' : 'Faculty Tutor',
@@ -4331,6 +4341,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     students.filter(s => !s.isUpgradedTutor).forEach(s => {
       list.push({
         id: s.id,
+        cloudIdentifier: s.id,
         name: s.name,
         role: 'student',
         roleLabel: s.isAlumni ? 'Alumni' : 'Scholar',
@@ -4350,6 +4361,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     parents.forEach(p => {
       list.push({
         id: p.id,
+        cloudIdentifier: p.id,
         name: p.fullName,
         role: 'parent',
         roleLabel: 'Parent / Guardian',
@@ -4365,10 +4377,22 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return list;
   };
 
-  const adminResetUserPassword = async (userId: string, userRole: UserRole, newPassword: string): Promise<boolean> => {
-    if (!newPassword || newPassword.length < 6 || !isRemoteEnabled()) return false;
-    const result = await remoteChangePassword(userId, null, newPassword);
-    if (!result.ok) return false;
+  const adminResetUserPassword = async (
+    userId: string,
+    userRole: UserRole,
+    newPassword: string,
+    cloudIdentifier = userId
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: 'New password must be at least 6 characters long.' };
+    }
+    if (!isRemoteEnabled()) {
+      return { success: false, message: 'Supabase is not configured in this deployment.' };
+    }
+    const result = await remoteChangePassword(cloudIdentifier, null, newPassword);
+    if (!result.ok) {
+      return { success: false, message: result.message || 'Supabase rejected the password reset.' };
+    }
     switch (userRole) {
       case 'admin':
         setAdminPassword(newPassword);
@@ -4396,9 +4420,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateParent(userId, { password: newPassword });
         break;
       default:
-        return false;
+        return { success: false, message: 'Password reset is not supported for this account role.' };
     }
-    return true;
+    return { success: true, message: 'Password updated in Supabase.' };
   };
 
   // 14. Teacher Lesson Notes & Academic Materials

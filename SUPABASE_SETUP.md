@@ -6,7 +6,7 @@ The app reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. With Supabase co
 
 For a new project, use Supabase Dashboard → **SQL Editor** → New query, paste all of `supabase/schema.sql`, then **Run**.
 
-For an existing project, run `supabase/migrations/20261008_cloud_password_self_change.sql` in the SQL Editor before deploying this app version. This updates the password RPC used by the app; editing the local SQL files does not change the live Supabase database.
+For an existing project, run `supabase/migrations/20261008_cloud_password_self_change.sql`, then `supabase/migrations/20261008_admin_reset_self_password.sql` in the SQL Editor before deploying this app version. The second migration allows the authenticated admin vault to reset the admin's own account while preserving current-password checks for ordinary self-service changes. Editing the local SQL files does not change the live Supabase database.
 
 ### Hardened Database Components:
 - **`user_roles`**: Isolated, non-user-editable RBAC table for strict role management.
@@ -36,7 +36,7 @@ Set environment variables in your deployment environment or `.env`:
   - **Students**: CBT drill attempts, student articles, ephemeral statuses, and community chat.
   - **Parents**: Consultation requests, payment receipts, and ward inquiries.
 - **Privilege Escalation Defense**: `create_credential` requires `public.is_admin()`. Unprivileged sessions attempting account creation or role escalation are blocked and logged.
-- **Self-Only Password Protection**: `change_password` verifies the signed-in account's role and reference ID, and requires the current password for self-service changes. Administrators can reset other accounts.
+- **Password Protection**: `change_password` verifies the signed-in account's role and reference ID. Self-service changes require the current password; an authenticated admin can use the admin vault to reset any account, including their own.
 - **Local cache**: School records are cached in the browser for the existing synchronous UI. Supabase remains the shared persisted store when configured. A cache is not a substitute for successful cloud writes.
 - **Browser migration**: Administrators can use **Sync This Browser to Supabase** in School Settings to upload that browser's saved school records. The action overwrites matching cloud keys, skips browser-only/session fields and sensitive values, and requires confirmation. Ensure the intended browser is the source before running it.
 - **Password recovery**: Security-question recovery is not configured for cloud mode. An administrator must reset passwords through the credentials page until a secure cloud recovery flow is implemented.

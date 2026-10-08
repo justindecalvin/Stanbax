@@ -114,13 +114,14 @@ export const AdminCredentialsVaultTab: React.FC = () => {
     e.preventDefault();
     if (!selectedUserForReset || !resetNewPass.trim()) return;
 
-    const success = await adminResetUserPassword(
+    const result = await adminResetUserPassword(
       selectedUserForReset.id, 
       selectedUserForReset.role, 
-      resetNewPass.trim()
+      resetNewPass.trim(),
+      selectedUserForReset.cloudIdentifier
     );
 
-    if (success) {
+    if (result.success) {
       setResetFeedback({ type: 'success', text: `Password for ${selectedUserForReset.name} was updated in Supabase.` });
       setTimeout(() => {
         setResetFeedback(null);
@@ -128,7 +129,7 @@ export const AdminCredentialsVaultTab: React.FC = () => {
         setResetNewPass('');
       }, 2500);
     } else {
-      setResetFeedback({ type: 'error', text: 'Password was not changed. Confirm that Supabase is connected and this account exists there.' });
+      setResetFeedback({ type: 'error', text: `Password was not changed. ${result.message}` });
     }
   };
 

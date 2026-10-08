@@ -634,6 +634,7 @@ export interface AssessmentControlConfig {
 
 export interface UserCredentialItem {
   id: string;
+  cloudIdentifier?: string;
   name: string;
   role: UserRole;
   roleLabel: string;
