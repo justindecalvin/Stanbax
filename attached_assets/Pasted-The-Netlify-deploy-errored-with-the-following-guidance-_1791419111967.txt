@@ -1,0 +1,54 @@
+The Netlify deploy errored, with the following guidance provided:
+
+The build is failing at dependency installation ([line 32](#L32)) because npm is trying to fetch a package from `http://package-firewall.replit.internal`, which is a Replit-internal network address that is not accessible from Netlify's build environment.
+
+This indicates your `package-lock.json` was generated inside a Replit environment and contains a `resolved` URL pointing to Replit's internal package firewall proxy, which Netlify cannot reach.
+
+**Solution:**
+
+You need to regenerate your `package-lock.json` outside of Replit (e.g., on your local machine) so that it contains standard npm registry URLs instead of Replit-internal ones.
+
+1. Clone your repo locally (outside of Replit).
+2. Delete the existing `package-lock.json`:
+   ```bash
+   rm package-lock.json
+   ```
+3. Reinstall dependencies to generate a clean lockfile:
+   ```bash
+   npm install
+   ```
+4. Commit and push the updated `package-lock.json`:
+   ```bash
+   git add package-lock.json
+   git commit -m "Regenerate package-lock.json with standard npm registry URLs"
+   git push
+   ```
+
+This will ensure the lockfile references `https://registry.npmjs.org` instead of Replit's internal proxy, allowing Netlify to resolve and download packages successfully.
+
+The relevant error logs are:
+
+Line 18: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+Line 19: mise by @jdx – installing 1 tool
+Line 20: mise ⇢ go@1.26.2  29ms · already installed
+Line 21: mise ████████████████ 1/1 · installed 0 tools · 1 already installed in 30ms
+Line 22: mise ~/.config/mise/config.toml tools: go@1.26.2
+Line 23: v24.21.0 is already installed.
+Line 24: Now using node v24.21.0 (npm v11.19.0)
+Line 25: Enabling Node.js Corepack
+Line 26: No npm workspaces detected
+Line 27: Installing npm packages using npm version 11.19.0
+Line 28: Failed during stage 'Install dependencies': dependency_installation script returned non-zero exit code: 1
+Line 29: npm error code ENOTFOUND
+Line 30: npm error syscall getaddrinfo
+Line 31: npm error errno ENOTFOUND
+Line 32: npm error network request to http://package-firewall.replit.internal/npm/resolve-pkg-maps/-/resolve-pkg-maps-1.0.0.tgz failed, r
+Line 33: npm error network This is a problem related to network connectivity.
+Line 34: npm error network In most cases you are behind a proxy or have bad network settings.
+Line 35: npm error network
+Line 36: npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+Line 37: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-10-08T00_22_27_538Z-debug-0.log
+Line 38: Error during npm install
+Line 39: Failing build: Failed to install dependencies
+Line 40: Finished processing build request in 1m17.622s
+Line 41: [ERROR] Deploy logs are currently unavailable. We are working on resolving the issue.
