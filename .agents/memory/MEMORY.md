@@ -1,1 +1,2 @@
 - [Cloud authentication](cloud-auth.md) — Stanbax Schools requires Supabase password persistence and cloud verification across browsers and devices.
+- [Netlify npm lockfiles](netlify-npm-lockfiles.md) — keep package tarball URLs on the public npm registry; Netlify cannot reach Replit’s internal firewall.
