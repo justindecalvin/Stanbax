@@ -617,15 +617,15 @@ export const AdminSchoolSettingsTab: React.FC = () => {
                     ? 'bg-emerald-200 text-emerald-900'
                     : 'bg-amber-200 text-amber-950 border border-amber-300'
                 }`}>
-                  {isRemoteEnabled() ? 'Live Cloud Database Connected' : 'Offline / Single-Browser Mode'}
+                  {isRemoteEnabled() ? 'Supabase Configured' : 'Offline / Single-Browser Mode'}
                 </span>
                 <span className="text-xs text-stone-500 font-bold">
-                  {isRemoteEnabled() ? 'Multi-Device Sync Active' : 'LocalStorage Cache Only'}
+                  {isRemoteEnabled() ? 'Cloud write-through + local cache' : 'LocalStorage Cache Only'}
                 </span>
               </div>
               <h3 className="text-base sm:text-lg font-black text-stone-900 mt-1">
                 {isRemoteEnabled()
-                  ? 'All Devices & Browsers Are Synchronized in Real-Time'
+                  ? 'Supabase is the shared store for school records'
                   : 'Why changes do not appear on other browsers & How to fix on Netlify'}
               </h3>
             </div>
@@ -678,7 +678,7 @@ export const AdminSchoolSettingsTab: React.FC = () => {
         {isRemoteEnabled() ? (
           <div className="space-y-2 text-xs text-emerald-900">
             <p className="font-semibold leading-relaxed">
-              Your Netlify deployment is connected to your central cloud database! Any student registered, grade entered, or exam published is instantly stored in PostgreSQL and accessible from every smartphone, tablet, or PC.
+              Changes are sent to Supabase for shared storage; this browser keeps a sanitized cache for the existing app interface. Other browsers load the shared records when they open or refresh the portal. This page does not claim live updates while another browser stays open.
             </p>
           </div>
         ) : (

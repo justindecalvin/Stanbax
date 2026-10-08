@@ -2800,6 +2800,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const updateAdminSecurityQuestion = (question: string, answer: string) => {
+    if (isRemoteEnabled()) {
+      return {
+        success: false,
+        message: 'Security-question recovery is not configured in Supabase. Password recovery must be handled by an administrator.',
+      };
+    }
     const q = question.trim();
     const a = answer.trim();
     if (!q) return { success: false, message: 'Security question cannot be empty.' };
@@ -4242,6 +4248,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // 13F. Admin Visibility of Every Password & User Directory
   const getAllUserCredentials = (): UserCredentialItem[] => {
     const list: UserCredentialItem[] = [];
+    const displayPassword = (password: string | undefined, fallback: string) =>
+      isRemoteEnabled() ? 'Managed securely in Supabase' : password || fallback;
 
     // Admin
     list.push({
@@ -4251,7 +4259,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       roleLabel: 'Administrator',
       primaryIdentifier: 'Admin',
       email: 'admin@stanbaxschools.edu.ng',
-      password: adminPassword || DEFAULT_ADMIN_PASSWORD,
+      password: displayPassword(adminPassword, DEFAULT_ADMIN_PASSWORD),
       status: 'Active',
       departmentOrGrade: 'ICT & Registry Operations',
       lastUpdated: 'System Master'
@@ -4265,7 +4273,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       roleLabel: 'Proprietress',
       primaryIdentifier: 'proprietress',
       email: 'proprietress@stanbaxschools.edu.ng',
-      password: proprietressPassword,
+      password: displayPassword(proprietressPassword, DEFAULT_PROPRIETRESS_PASSWORD),
       status: 'Active',
       departmentOrGrade: 'Executive Council',
       lastUpdated: 'Executive Master'
@@ -4279,7 +4287,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       roleLabel: 'Head Mistress / Academic Principal',
       primaryIdentifier: 'headmistress',
       email: headmistressProfile.email || 'headmistress@stanbaxschools.edu.ng',
-      password: headmistressPassword || 'Headmistress2025!',
+      password: displayPassword(headmistressPassword, 'Headmistress2025!'),
       status: 'Active',
       departmentOrGrade: 'Academic Leadership',
       lastUpdated: 'Executive Master'
@@ -4294,7 +4302,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         roleLabel: 'Community Moderator',
         primaryIdentifier: m.email.split('@')[0] || 'moderator',
         email: m.email,
-        password: moderatorPassword || 'Moderator2025!',
+        password: displayPassword(moderatorPassword, 'Moderator2025!'),
         status: m.status,
         departmentOrGrade: m.roleTitle,
         lastUpdated: 'Communications Registry'
@@ -4310,7 +4318,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         roleLabel: t.isUpgraded ? 'Associate Faculty (Scholar Tutor)' : 'Faculty Tutor',
         primaryIdentifier: t.staffId || t.email,
         email: t.email,
-        password: t.password || 'stanbax2025',
+        password: displayPassword(t.password, 'stanbax2025'),
         status: t.isUpgraded 
           ? (t.profileCompleted ? 'Upgraded Tutor' : 'Pending Profile Setup') 
           : 'Active',
@@ -4328,7 +4336,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         roleLabel: s.isAlumni ? 'Alumni' : 'Scholar',
         primaryIdentifier: s.regNumber,
         email: s.email || `${s.regNumber.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}@stanbaxschools.edu.ng`,
-        password: s.password || 'stanbax2025',
+        password: displayPassword(s.password, 'stanbax2025'),
         securityQuestion: s.securityQuestion,
         securityAnswer: s.securityAnswer,
         passportPhoto: s.passportPhoto,
@@ -4347,7 +4355,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         roleLabel: 'Parent / Guardian',
         primaryIdentifier: p.phone || p.email,
         email: p.email,
-        password: p.password || 'parent2025',
+        password: displayPassword(p.password, 'parent2025'),
         status: 'Active',
         departmentOrGrade: 'Parent Portal',
         lastUpdated: 'Family Directory'

@@ -18,6 +18,7 @@ import {
   GraduationCap, 
   Building2 
 } from '../../RealIcons';
+import { isRemoteEnabled } from '../../../lib/supabase';
 
 export const AdminCredentialsVaultTab: React.FC = () => {
   const { 
@@ -52,7 +53,7 @@ export const AdminCredentialsVaultTab: React.FC = () => {
   // User password reset modal
   const [selectedUserForReset, setSelectedUserForReset] = useState<UserCredentialItem | null>(null);
   const [resetNewPass, setResetNewPass] = useState('');
-  const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+  const [resetFeedback, setResetFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const allCredentials = getAllUserCredentials();
 
@@ -120,12 +121,14 @@ export const AdminCredentialsVaultTab: React.FC = () => {
     );
 
     if (success) {
-      setResetSuccessMsg(`Password for ${selectedUserForReset.name} was updated in Supabase.`);
+      setResetFeedback({ type: 'success', text: `Password for ${selectedUserForReset.name} was updated in Supabase.` });
       setTimeout(() => {
-        setResetSuccessMsg('');
+        setResetFeedback(null);
         setSelectedUserForReset(null);
         setResetNewPass('');
       }, 2500);
+    } else {
+      setResetFeedback({ type: 'error', text: 'Password was not changed. Confirm that Supabase is connected and this account exists there.' });
     }
   };
 
@@ -139,20 +142,22 @@ export const AdminCredentialsVaultTab: React.FC = () => {
             <h2 className="text-lg sm:text-xl font-black">Central Credentials & Password Vault</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            Full administrative transparency: View, inspect, copy, and reset passwords across all institutional user accounts (Administrators, Proprietress, Faculty Tutors, and Scholars).
+            Reset institutional account passwords. With Supabase connected, passwords are stored as hashes and cannot be revealed; use reset to set a new one.
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setRevealAll(!revealAll)}
+          disabled={isRemoteEnabled()}
+          title={isRemoteEnabled() ? 'Cloud passwords are stored as hashes and cannot be revealed.' : undefined}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm self-start md:self-auto ${
             revealAll ? 'bg-amber-400 text-blue-950 hover:bg-amber-500' : 'bg-slate-800 text-white hover:bg-slate-900'
           }`}
           id="btn-toggle-reveal-all-passwords"
         >
           {revealAll ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          <span>{revealAll ? 'Mask All Passwords' : 'Reveal All Passwords'}</span>
+          <span>{isRemoteEnabled() ? 'Passwords Hashed in Supabase' : revealAll ? 'Mask All Passwords' : 'Reveal All Passwords'}</span>
         </button>
       </div>
 
@@ -245,13 +250,15 @@ export const AdminCredentialsVaultTab: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-black text-white flex items-center gap-1.5">
-                  <span>Anti-Hack Account Protection Shield</span>
+                  <span>Account Recovery Settings</span>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold">
-                    Active & Enforced
+                    Admin reset only in cloud mode
                   </span>
                 </h4>
                 <p className="text-[11px] text-slate-400">
-                  Prevents unauthorized password resets at the login gateway. Resetting the Admin account strictly requires answering this security question.
+                  {isRemoteEnabled()
+                    ? 'Cloud password recovery by security answer is not configured. Use the administrator reset flow; local security answers are not used for cloud recovery.'
+                    : 'Local-only recovery uses this security question. Cloud mode requires an administrator password reset.'}
                 </p>
               </div>
             </div>
@@ -472,6 +479,11 @@ export const AdminCredentialsVaultTab: React.FC = () => {
 
                       {/* Password */}
                       <td className="py-3.5 px-4 font-mono text-xs">
+                        {isRemoteEnabled() ? (
+                          <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                            Stored as hash
+                          </span>
+                        ) : (
                         <div className="flex items-center gap-1.5">
                           <span className={`px-2 py-1 rounded-md font-bold text-xs ${
                             isVisible ? 'bg-amber-50 text-slate-900 border border-amber-200' : 'text-slate-400 select-none'
@@ -488,30 +500,33 @@ export const AdminCredentialsVaultTab: React.FC = () => {
                             {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
+                        )}
                       </td>
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right space-x-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyPassword(item.id, item.password)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer border ${
-                            isCopied
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
-                          title="Copy password to clipboard"
-                        >
-                          {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          <span>{isCopied ? 'Copied' : 'Copy'}</span>
-                        </button>
+                        {!isRemoteEnabled() && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPassword(item.id, item.password)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer border ${
+                              isCopied
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                            }`}
+                            title="Copy password to clipboard"
+                          >
+                            {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedUserForReset(item);
                             setResetNewPass('');
-                            setResetSuccessMsg('');
+                            setResetFeedback(null);
                           }}
                           className="px-2.5 py-1 rounded-lg bg-blue-900 hover:bg-blue-950 text-white text-[11px] font-bold transition cursor-pointer shadow-xs"
                           title="Reset this user's password"
@@ -542,17 +557,26 @@ export const AdminCredentialsVaultTab: React.FC = () => {
               </div>
             </div>
 
-            {resetSuccessMsg ? (
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>{resetSuccessMsg}</span>
+            {resetFeedback && (
+              <div className={`p-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                resetFeedback.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}>
+                {resetFeedback.type === 'success'
+                  ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  : <AlertCircle className="w-4 h-4 text-rose-600" />}
+                <span>{resetFeedback.text}</span>
               </div>
-            ) : (
+            )}
+            {resetFeedback?.type !== 'success' && (
               <form onSubmit={handleConfirmUserReset} className="space-y-3.5">
                 <div className="p-3 rounded-xl bg-slate-50 text-xs space-y-1 text-slate-600 border border-slate-200">
                   <div><strong>Account:</strong> {selectedUserForReset.name} ({selectedUserForReset.roleLabel})</div>
                   <div><strong>Identifier:</strong> {selectedUserForReset.primaryIdentifier}</div>
-                  <div><strong>Current Password:</strong> <span className="font-mono font-bold text-slate-800">{selectedUserForReset.password}</span></div>
+                  {!isRemoteEnabled() && (
+                    <div><strong>Current Password:</strong> <span className="font-mono font-bold text-slate-800">{selectedUserForReset.password}</span></div>
+                  )}
                 </div>
 
                 <div>
