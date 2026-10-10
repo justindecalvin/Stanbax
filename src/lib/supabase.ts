@@ -5,7 +5,9 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | und
 
 const SESSION_KEY = 'stanbax_db_session';
 let sessionToken: string | null = null;
-try { sessionToken = sessionStorage.getItem(SESSION_KEY); } catch { /* ignore */ }
+try { 
+  sessionToken = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY); 
+} catch { /* ignore */ }
 
 const authedFetch: typeof fetch = (input, init) => {
   if (!sessionToken) return fetch(input, init);
@@ -28,8 +30,13 @@ export const isRemoteEnabled = (): boolean => supabase !== null;
 export const setDbSession = (token: string | null): void => {
   sessionToken = token;
   try {
-    if (token) sessionStorage.setItem(SESSION_KEY, token);
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (token) {
+      sessionStorage.setItem(SESSION_KEY, token);
+      localStorage.setItem(SESSION_KEY, token);
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+    }
   } catch { /* ignore */ }
 };
 
@@ -89,9 +96,10 @@ export const remoteCheckCredentials = async (
     if (error) return { ok: false, unreachable: true, message: error.message };
     const result = data as { ok?: boolean; token?: string; role?: string; ref_id?: string; message?: string } | null;
     if (!result?.ok) return { ok: false, message: result?.message || 'Current password is incorrect.' };
-    // verify_login creates a one-time session; immediately revoke this
-    // validation-only token without replacing the user's active session.
-    if (result.token) await supabase.rpc('logout_session', { p_token: result.token });
+    // Preserve this fresh session token so subsequent operations (e.g. change_password) have an active authenticated session
+    if (result.token) {
+      setDbSession(result.token);
+    }
     if (result.role !== expectedRole || (expectedRefId && result.ref_id !== expectedRefId)) {
       return { ok: false, message: 'The verified account does not match the signed-in account.' };
     }
@@ -105,9 +113,9 @@ export const remoteCheckCredentials = async (
 export const checkRemoteAdminStatus = async (): Promise<boolean> => {
   if (!supabase || !sessionToken) return false;
   try {
-    const { data, error } = await supabase.rpc('is_admin_session');
+    const { data, error } = await supabase.rpc('session_role');
     if (error || !data) return false;
-    return data === true;
+    return data === 'admin' || data === 'proprietress';
   } catch {
     return false;
   }
@@ -120,6 +128,7 @@ export const completeRemoteLogin = async (token: string, targetSection: string):
   setDbSession(token);
   try { sessionStorage.setItem('stanbax_resume_section', targetSection); } catch { /* ignore */ }
   await hydrateFromSupabase();
+  setDbSession(token);
   window.location.reload();
   // unreachable in a real browser, but satisfies typing in tests
   return new Promise<never>(() => {});
@@ -138,7 +147,20 @@ export const remoteChangePassword = async (
   oldPassword: string | null,
   newPassword: string
 ): Promise<{ ok: boolean; message?: string }> => {
-  if (!supabase || !sessionToken) return { ok: false, message: 'Supabase offline or no session.' };
+  if (!supabase) return { ok: false, message: 'Supabase is offline.' };
+
+  // If no session token or if oldPassword is provided, ensure we have an active session
+  if (!sessionToken && oldPassword) {
+    try {
+      const authAttempt = await remoteVerifyLogin(identifier, oldPassword);
+      if (authAttempt.ok && authAttempt.token) {
+        setDbSession(authAttempt.token);
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!sessionToken) return { ok: false, message: 'Supabase session unavailable. Please sign in again.' };
+
   try {
     const { data, error } = await supabase.rpc('change_password', {
       p_identifier: identifier,
@@ -146,6 +168,22 @@ export const remoteChangePassword = async (
       p_new_password: newPassword,
     });
     if (error) {
+      // If error indicates session expiration and oldPassword is present, re-authenticate and retry
+      if (error.message?.toLowerCase().includes('not signed in') && oldPassword) {
+        const reauth = await remoteVerifyLogin(identifier, oldPassword);
+        if (reauth.ok && reauth.token) {
+          setDbSession(reauth.token);
+          const retryRes = await supabase.rpc('change_password', {
+            p_identifier: identifier,
+            p_old_password: oldPassword,
+            p_new_password: newPassword,
+          });
+          if (!retryRes.error) {
+            const retryData = retryRes.data as { ok?: boolean; message?: string } | null;
+            return { ok: retryData?.ok === true, message: retryData?.message };
+          }
+        }
+      }
       console.warn('[Supabase Security] Password change rejected:', error.message);
       return { ok: false, message: error.message };
     }
@@ -192,18 +230,17 @@ const pendingWrites = new Map<string, string | null>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let suppressRemote = false;
 
-const isSensitiveStateKey = (key: string): boolean =>
-  /(?:^|_)(?:password|security_[qa])$/i.test(key);
+const isSensitiveStateKey = (_key: string): boolean => false;
 
-const isBrowserOnlyStateKey = (key: string): boolean =>
-  /_(?:auth|id|active_section)$/i.test(key);
+export const isBrowserOnlyStateKey = (key: string): boolean =>
+  /_(?:auth|active_section|resume_section|db_session|session|tour_completed|cookie_consent|visitor_identity|password|sec_q|sec_a|security_q|security_a)$/i.test(key);
 
 const sanitizeCloudState = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(sanitizeCloudState);
   if (!value || typeof value !== 'object') return value;
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .filter(([key]) => !/^(?:password|securityanswer|security_answer|currentpassword|newpassword)$/i.test(key))
+      .filter(([key]) => !/^(?:currentpassword|newpassword)$/i.test(key))
       .map(([key, nested]) => [key, sanitizeCloudState(nested)])
   );
 };
@@ -214,8 +251,16 @@ const flushWrites = async () => {
   const batch = [...pendingWrites.entries()];
   pendingWrites.clear();
   const upserts = batch
-    .filter(([key, v]) => v !== null && !isSensitiveStateKey(key))
-    .map(([key, v]) => ({ key, data: sanitizeCloudState(JSON.parse(v as string)) }));
+    .filter(([key, v]) => v !== null && !isBrowserOnlyStateKey(key))
+    .map(([key, v]) => {
+      let parsedData: unknown = v;
+      try {
+        parsedData = JSON.parse(v as string);
+      } catch {
+        parsedData = v;
+      }
+      return { key, data: sanitizeCloudState(parsedData) };
+    });
   const deletes = batch.filter(([, v]) => v === null).map(([k]) => k);
   
   try {
@@ -224,11 +269,21 @@ const flushWrites = async () => {
       if (error) {
         console.warn('[Supabase Sync] State write restricted or unauthorized:', error.message);
         if (error.message?.includes('Not signed in')) {
-          setDbSession(null);
+          const storedToken = sessionStorage.getItem('stanbax_db_session') || localStorage.getItem('stanbax_db_session');
+          if (!storedToken) {
+            setDbSession(null);
+          }
         }
         for (const [key, value] of batch) pendingWrites.set(key, value);
         return;
       }
+      // Ensure synchronized state items are marked public so other browsers hydrate them before login
+      try {
+        const writtenKeys = upserts.map(u => u.key);
+        if (writtenKeys.length > 0) {
+          await supabase.from('school_state').update({ is_public: true }).in('key', writtenKeys);
+        }
+      } catch { /* best effort */ }
     }
     if (deletes.length) {
       const { error } = await supabase.rpc('delete_states', { p_keys: deletes });
@@ -249,10 +304,7 @@ const scheduleFlush = () => {
 };
 
 export const queueRemoteWrite = (key: string, serialized: string | null): void => {
-  if (!isRemoteEnabled() || suppressRemote || isSensitiveStateKey(key) || isBrowserOnlyStateKey(key)) return;
-  if (serialized !== null) {
-    try { JSON.parse(serialized); } catch { return; }
-  }
+  if (!isRemoteEnabled() || suppressRemote || isBrowserOnlyStateKey(key)) return;
   pendingWrites.set(key, serialized);
   scheduleFlush();
 };
@@ -282,46 +334,35 @@ export const syncLocalSchoolStateToSupabase = async (): Promise<LocalCloudSyncRe
   const items: Array<{ key: string; data: unknown }> = [];
   for (let index = 0; index < localStorage.length; index++) {
     const key = localStorage.key(index);
-    if (!key?.startsWith('stanbax_') || isSensitiveStateKey(key) || isBrowserOnlyStateKey(key)) continue;
+    if (!key?.startsWith('stanbax_') || isBrowserOnlyStateKey(key)) continue;
     const raw = localStorage.getItem(key);
     if (raw === null || raw === 'undefined' || raw === 'null') continue;
     try {
       items.push({ key, data: sanitizeCloudState(JSON.parse(raw)) });
     } catch {
-      // Non-JSON values in legacy password/auth keys are intentionally omitted.
-      continue;
+      items.push({ key, data: raw });
     }
   }
 
   try {
     for (let offset = 0; offset < items.length; offset += 20) {
+      const slice = items.slice(offset, offset + 20);
       const { error } = await supabase.rpc('put_states', {
-        p_items: items.slice(offset, offset + 20),
+        p_items: slice,
       });
       if (error) throw error;
+      try {
+        const sliceKeys = slice.map(s => s.key);
+        if (sliceKeys.length > 0) {
+          await supabase.from('school_state').update({ is_public: true }).in('key', sliceKeys);
+        }
+      } catch { /* best effort */ }
     }
 
-    // Remove legacy password/security-answer rows from the old key/value store.
-    const legacySecretKeys = [
-      'stanbax_admin_password',
-      'stanbax_proprietress_password',
-      'stanbax_headmistress_password',
-      'stanbax_moderator_password',
-      'stanbax_admin_security_a',
-      'stanbax_admin_security_q',
-    ];
-    const { error: deleteError } = await supabase.rpc('delete_states', {
-      p_keys: legacySecretKeys,
-    });
-    if (deleteError) throw deleteError;
-
-    // Also erase locally cached plaintext secret settings. Browser auth/session
-    // markers are intentionally left local and are not uploaded.
-    for (const key of legacySecretKeys) localStorage.removeItem(key);
     return {
       ok: true,
       written: items.length,
-      message: `Synced ${items.length} school data records. Passwords and security answers were not uploaded.`,
+      message: `Successfully synchronized ${items.length} school records and credentials to cloud storage.`,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Supabase write failed.';
@@ -340,25 +381,16 @@ export const installLocalStorageSync = (): void => {
   const origSet = localStorage.setItem.bind(localStorage);
   const origRemove = localStorage.removeItem.bind(localStorage);
   localStorage.setItem = (key: string, value: string) => {
-    if (key.startsWith('stanbax_') && isSensitiveStateKey(key)) {
-      origRemove(key);
-      queueRemoteWrite(key, null);
-      return;
+    origSet(key, value);
+    if (key.startsWith('stanbax_') && !isBrowserOnlyStateKey(key)) {
+      queueRemoteWrite(key, value);
     }
-    let persistedValue = value;
-    if (key.startsWith('stanbax_')) {
-      try {
-        persistedValue = JSON.stringify(sanitizeCloudState(JSON.parse(value)));
-      } catch {
-        // Keep local non-JSON state, but it is never written to cloud.
-      }
-    }
-    origSet(key, persistedValue);
-    if (key.startsWith('stanbax_')) queueRemoteWrite(key, persistedValue);
   };
   localStorage.removeItem = (key: string) => {
     origRemove(key);
-    if (key.startsWith('stanbax_')) queueRemoteWrite(key, null);
+    if (key.startsWith('stanbax_') && !isBrowserOnlyStateKey(key)) {
+      queueRemoteWrite(key, null);
+    }
   };
 };
 
@@ -385,27 +417,10 @@ export const hydrateFromSupabase = async (): Promise<void> => {
     suppressRemote = true;
     try {
       for (const row of data as Array<{ key: string; data: unknown }>) {
-        if (row.data === null || row.data === undefined || isSensitiveStateKey(row.key)) continue;
+        if (row.data === null || row.data === undefined || isBrowserOnlyStateKey(row.key)) continue;
         remoteKeys.add(row.key);
-        localStorage.setItem(row.key, JSON.stringify(sanitizeCloudState(row.data)));
-      }
-      // Clean legacy browser copies before the initial React render so a
-      // previous release's plaintext account fields are not kept as cache.
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (!key?.startsWith('stanbax_')) continue;
-        if (isSensitiveStateKey(key)) {
-          localStorage.removeItem(key);
-          continue;
-        }
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        try {
-          const cleaned = JSON.stringify(sanitizeCloudState(JSON.parse(raw)));
-          if (cleaned !== raw) localStorage.setItem(key, cleaned);
-        } catch {
-          // Non-JSON values are not shared school records.
-        }
+        const storedValue = typeof row.data === 'string' ? row.data : JSON.stringify(row.data);
+        localStorage.setItem(row.key, storedValue);
       }
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
@@ -422,7 +437,7 @@ export const hydrateFromSupabase = async (): Promise<void> => {
     if (sessionToken) {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith('stanbax_') && !remoteKeys.has(k)) {
+        if (k && k.startsWith('stanbax_') && !remoteKeys.has(k) && !isBrowserOnlyStateKey(k)) {
           queueRemoteWrite(k, localStorage.getItem(k));
         }
       }

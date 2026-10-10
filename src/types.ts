@@ -208,6 +208,8 @@ export interface GradeRecord {
   term3Total?: number;
   cumulativeTotal?: number;
   annualAverage?: number;
+  studentId?: string;
+  studentRegNumber?: string;
 }
 
 export interface ContactInquiry {
@@ -325,6 +327,63 @@ export interface StudentProfile {
     allowDirectMessages?: boolean;
     dmPermission?: 'classmates_only' | 'anyone';
   };
+  customResults?: CustomResult[];
+  alumniRegistrationId?: string;
+  alumniApprovalStatus?: 'pending' | 'approved' | 'rejected';
+  graduationYear?: string;
+}
+
+export interface CustomResult {
+  id: string;
+  title: string;
+  session: string;
+  term: string;
+  fileUrl?: string;
+  fileData?: string;
+  fileName?: string;
+  fileType?: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+  comments?: string;
+  examType?: string; // WAEC, NECO, JAMB, Cambridge, Internal Term Report, Certificate, etc.
+  scoresSummary?: string;
+  overallScore?: string;
+  remarks?: string;
+  subjectBreakdown?: Array<{ subject: string; score?: string; grade?: string; remark?: string }> | any;
+  fileAttachment?: string;
+}
+
+export interface AlumniRegistration {
+  id: string;
+  fullName: string;
+  graduationYear: string;
+  email: string;
+  phone: string;
+  formerRegNumber?: string;
+  formerClassOrSet?: string;
+  currentOccupation?: string;
+  currentInstitution?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  assignedStudentId?: string;
+}
+
+export interface OfficialSignatures {
+  headmistressSignature?: string; // For Primary / Nursery / Kindergarten
+  headmistressName?: string;
+  headmistressTitle?: string;
+  principalAdminSignature?: string; // For Secondary Admin
+  principalAdminName?: string;
+  principalAdminTitle?: string;
+  principalAcademicsSignature?: string; // For Secondary Academics
+  principalAcademicsName?: string;
+  principalAcademicsTitle?: string;
+  generalPrincipalSignature?: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export type PrincipalRole = 'none' | 'principal_admin' | 'principal_administrator' | 'principal_academics';
@@ -406,6 +465,16 @@ export interface TutorProfile {
   appointedBy?: string;
   studentOriginId?: string;
   studentRegNumber?: string;
+  retainedAcademicResults?: {
+    grades?: GradeRecord[];
+    academicHistory?: HistoricalSessionRecord[];
+    customResults?: CustomResult[];
+    termAverage?: number;
+    cumulativeAnnualAverage?: number;
+    promotedToGrade?: string;
+    teacherRemark?: string;
+    principalRemark?: string;
+  };
 }
 
 export interface FacultyMember {
@@ -446,6 +515,17 @@ export interface SchoolInfo {
   mission?: string;
   location?: string;
   admissionsPhone?: string;
+  termStartDate?: string;
+  midTermBreakDate?: string;
+  headmistressSignature?: string;
+  headmistressName?: string;
+  headmistressTitle?: string;
+  principalSignature?: string;
+  principalName?: string;
+  principalTitle?: string;
+  academicsSignature?: string;
+  academicsName?: string;
+  academicsTitle?: string;
 }
 
 export interface SchoolClass {
@@ -877,6 +957,9 @@ export interface TermResumptionConfig {
   session: string; // e.g. '2025/2026 Academic Session'
   isTermActive: boolean;
   totalSchoolDaysPlanned?: number;
+  isMidwayLaunch?: boolean;
+  midwayElapsedDays?: number;
+  midwayStartWeek?: number;
 }
 
 export interface ClassAttendanceSummary {

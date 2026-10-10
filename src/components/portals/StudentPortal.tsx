@@ -79,7 +79,8 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
     houseStandings,
     pressClubPresidentStudentId,
     pressClubEditorStudentIds,
-    getTotalUnreadCount
+    getTotalUnreadCount,
+    officialSignatures
   } = useSchool();
 
   const studentChatUnread = getTotalUnreadCount(student.id);
@@ -293,9 +294,22 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
           : 'REPEAT CURRENT CLASS RECOMMENDED TO STRENGTHEN FOUNDATIONS.'));
 
   const handleDownloadHtmlResult = () => {
-    const totalScoreSum = displayGrades.reduce((acc, g) => acc + g.total, 0);
-    const termAvg = Math.round(totalScoreSum / (displayGrades.length || 1));
-    const effectiveLogo = schoolInfo.logoUrl || (images.crest && !images.crest.includes('photo-1546410531-bb4caa6b424d') ? images.crest : (images.schoolLogo || ''));
+    const effectiveLogo = images?.logo || '';
+    const isPrimaryScholar = /^(nursery|reception|primary|basic\s*[1-6]|kindergarten|kg|creche|playgroup|toddler)/i.test(student.grade || '');
+    const hmSigImg = officialSignatures?.headmistressSignature || schoolInfo?.headmistressSignature || '';
+    const hmName = officialSignatures?.headmistressName || schoolInfo?.headmistressName || 'Mrs. Funmilayo Adediran';
+    const hmTitle = officialSignatures?.headmistressTitle || schoolInfo?.headmistressTitle || 'Headmistress, Primary & Early Years';
+
+    const princAdminSigImg = officialSignatures?.principalAdminSignature || schoolInfo?.principalSignature || '';
+    const princAdminName = officialSignatures?.principalAdminName || schoolInfo?.principalName || 'Dr. Babatunde Ogunlesi';
+    const princAdminTitle = officialSignatures?.principalAdminTitle || schoolInfo?.principalTitle || 'Principal & Executive Director';
+
+    const princAcadSigImg = officialSignatures?.principalAcademicsSignature || schoolInfo?.academicsSignature || '';
+    const princAcadName = officialSignatures?.principalAcademicsName || schoolInfo?.academicsName || 'Engr. Olumide Ogunleye';
+    const princAcadTitle = officialSignatures?.principalAcademicsTitle || schoolInfo?.academicsTitle || 'Dean of Academics & Controller';
+
+    const endorsementTitle = isPrimaryScholar ? "Headmistress's Executive Academic Endorsement" : "Principal's Executive Endorsement";
+    const endorsementAuthor = isPrimaryScholar ? `— ${hmName} (${hmTitle})` : `— ${princAdminName} (${princAdminTitle})`;
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -456,22 +470,56 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ onBackToWebsite })
       <div style="font-size: 11px; font-weight: bold; color: #475569;">— Faculty Form Tutor</div>
     </div>
     <div class="remark-card">
-      <strong style="color: #1e3a8a;">Principal's Executive Endorsement</strong>
+      <strong style="color: #1e3a8a;">${endorsementTitle}</strong>
       <p style="margin: 6px 0; font-style: italic;">"${displayPrincipalRemark}"</p>
-      <div style="font-size: 11px; font-weight: bold; color: #475569;">— Dr. Babatunde Ogunlesi (Principal)</div>
+      <div style="font-size: 11px; font-weight: bold; color: #475569;">${endorsementAuthor}</div>
     </div>
   </div>
 
   <div class="signatures">
     <div>
+      <div style="height: 48px; display: flex; align-items: flex-end; justify-content: center;">
+        <span style="font-family: cursive; font-size: 18px; color: #1e3a8a; opacity: 0.85;">Certified Form Tutor</span>
+      </div>
       <div class="sig-line">Class Master / Tutor</div>
     </div>
+
+    ${isPrimaryScholar ? `
     <div>
-      <div class="sig-line">Academic Dean / Registrar</div>
+      <div style="height: 48px; display: flex; align-items: flex-end; justify-content: center;">
+        ${hmSigImg ? `<img src="${hmSigImg}" style="max-height: 46px; max-width: 140px; object-fit: contain;" alt="Headmistress Signature" />` : `<span style="font-family: cursive; font-size: 18px; color: #1e3a8a;">${hmName}</span>`}
+      </div>
+      <div class="sig-line">
+        ${hmName}<br>
+        <span style="font-size: 10px; font-weight: normal; color: #64748b;">${hmTitle}</span>
+      </div>
     </div>
     <div>
-      <div class="sig-line">Principal's Official Seal</div>
+      <div style="height: 48px; display: flex; align-items: flex-end; justify-content: center;">
+        <div style="width: 44px; height: 44px; border: 2px double #1e3a8a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 900; color: #1e3a8a; text-transform: uppercase;">SEAL</div>
+      </div>
+      <div class="sig-line">Official Registry Seal</div>
     </div>
+    ` : `
+    <div>
+      <div style="height: 48px; display: flex; align-items: flex-end; justify-content: center;">
+        ${princAcadSigImg ? `<img src="${princAcadSigImg}" style="max-height: 46px; max-width: 140px; object-fit: contain;" alt="Academics Dean Signature" />` : `<span style="font-family: cursive; font-size: 18px; color: #1e3a8a;">${princAcadName}</span>`}
+      </div>
+      <div class="sig-line">
+        ${princAcadName}<br>
+        <span style="font-size: 10px; font-weight: normal; color: #64748b;">${princAcadTitle}</span>
+      </div>
+    </div>
+    <div>
+      <div style="height: 48px; display: flex; align-items: flex-end; justify-content: center;">
+        ${princAdminSigImg ? `<img src="${princAdminSigImg}" style="max-height: 46px; max-width: 140px; object-fit: contain;" alt="Principal Signature" />` : `<span style="font-family: cursive; font-size: 18px; color: #1e3a8a;">${princAdminName}</span>`}
+      </div>
+      <div class="sig-line">
+        ${princAdminName}<br>
+        <span style="font-size: 10px; font-weight: normal; color: #64748b;">${princAdminTitle}</span>
+      </div>
+    </div>
+    `}
   </div>
 
   <div style="margin-top: 24px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px;">

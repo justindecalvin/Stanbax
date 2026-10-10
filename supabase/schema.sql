@@ -230,7 +230,8 @@ BEGIN
       'stanbax_school_calendar',
       'stanbax_term_resumption_config',
       'stanbax_gallery_photos',
-      'stanbax_directives'
+      'stanbax_directives',
+      'stanbax_alumni_registrations'
     );
   END IF;
 
@@ -421,8 +422,16 @@ BEGIN
 
   SELECT * INTO c FROM public.credentials
    WHERE lower(identifier) = lower(trim(p_identifier))
-      OR lower(ref_id) = lower(trim(p_identifier));
+      OR lower(ref_id) = lower(trim(p_identifier))
+      OR EXISTS (SELECT 1 FROM unnest(aliases) a
+                 WHERE lower(replace(a, ' ', '')) = lower(replace(trim(p_identifier), ' ', '')));
       
+  IF NOT FOUND THEN
+    IF v_ref IS NOT NULL THEN
+      SELECT * INTO c FROM public.credentials WHERE lower(ref_id) = lower(v_ref) LIMIT 1;
+    END IF;
+  END IF;
+
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'message', 'Account not found.');
   END IF;
@@ -724,7 +733,8 @@ INSERT INTO public.school_state (key, is_public) VALUES
   ('stanbax_footer_content', true),
   ('stanbax_role_privileges', true),
   ('stanbax_headmistress_profile', true),
-  ('stanbax_moderators', true)
+  ('stanbax_moderators', true),
+  ('stanbax_alumni_registrations', true)
 ON CONFLICT (key) DO UPDATE SET is_public = EXCLUDED.is_public;
 
 INSERT INTO public.credentials (identifier, aliases, password_hash, role, ref_id) VALUES

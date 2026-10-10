@@ -70,18 +70,23 @@ export interface LocalAssessmentResponse {
 }
 
 export function generateLocalCurriculumAssessment(req: LocalAssessmentRequest): LocalAssessmentResponse {
+  const safeClass = req?.classLevel || 'SSS 2';
+  const safeSubject = req?.subject || 'General Studies';
+  const safeTerm = req?.term || '2nd Term';
+  const safeAgeGroup = req?.ageGroup || '';
+
   const isEarlyYears = 
-    req.classLevel.toLowerCase().includes('nursery') || 
-    req.classLevel.toLowerCase().includes('kindergarten') || 
-    req.classLevel.toLowerCase().includes('kg') || 
-    req.classLevel.toLowerCase().includes('reception') || 
-    req.classLevel.toLowerCase().includes('early') || 
-    (req.ageGroup && req.ageGroup.includes('3-6'));
+    safeClass.toLowerCase().includes('nursery') || 
+    safeClass.toLowerCase().includes('kindergarten') || 
+    safeClass.toLowerCase().includes('kg') || 
+    safeClass.toLowerCase().includes('reception') || 
+    safeClass.toLowerCase().includes('early') || 
+    safeAgeGroup.includes('3-6');
 
   const isSecondary = 
-    req.classLevel.toLowerCase().includes('jss') || 
-    req.classLevel.toLowerCase().includes('sss') || 
-    req.classLevel.toLowerCase().includes('secondary');
+    safeClass.toLowerCase().includes('jss') || 
+    safeClass.toLowerCase().includes('sss') || 
+    safeClass.toLowerCase().includes('secondary');
 
   const objCount = isSecondary ? 50 : isEarlyYears ? 15 : (req.targetObjectiveCount || 25);
   const theoryCount = isSecondary ? 6 : isEarlyYears ? 0 : 4;
@@ -90,7 +95,7 @@ export function generateLocalCurriculumAssessment(req: LocalAssessmentRequest): 
   const theory: LocalAssessmentResponse['theory'] = [];
   let readingPassage: LocalAssessmentResponse['readingPassage'] | undefined = undefined;
 
-  const subjectLower = req.subject.toLowerCase();
+  const subjectLower = safeSubject.toLowerCase();
   const isEnglish = subjectLower.includes('eng') || subjectLower.includes('lit') || subjectLower.includes('use of english');
 
   if (isEarlyYears) {

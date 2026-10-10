@@ -25,6 +25,7 @@ import { compressImageFile } from '../../../utils/imageUploadHelper';
 import { DEFAULT_IMAGES } from '../../../data/schoolData';
 import { isRemoteEnabled, syncLocalSchoolStateToSupabase } from '../../../lib/supabase';
 import { NetlifyCloudSyncModal } from './NetlifyCloudSyncModal';
+import { OfficialSignaturesDesk } from '../OfficialSignaturesDesk';
 import schemaSql from '../../../../supabase/schema.sql?raw';
 
 export const AdminSchoolSettingsTab: React.FC = () => {
@@ -89,6 +90,9 @@ export const AdminSchoolSettingsTab: React.FC = () => {
   const [termControlTermName, setTermControlTermName] = useState(
     termResumptionConfig?.termName || '1st Term'
   );
+  const [isMidwayLaunch, setIsMidwayLaunch] = useState(
+    !!termResumptionConfig?.isMidwayLaunch
+  );
 
   // New Term Form state
   const [newTermModalOpen, setNewTermModalOpen] = useState(false);
@@ -96,6 +100,7 @@ export const AdminSchoolSettingsTab: React.FC = () => {
   const [newTermStartDate, setNewTermStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [newTermEndDate, setNewTermEndDate] = useState('2026-12-18');
   const [newTermSession, setNewTermSession] = useState(assessmentConfig.activeSession || '2025/2026 Academic Session');
+  const [newTermIsMidway, setNewTermIsMidway] = useState(false);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
@@ -107,7 +112,7 @@ export const AdminSchoolSettingsTab: React.FC = () => {
 
   const handleSyncThisBrowser = async () => {
     if (!window.confirm(
-      'Upload this browser’s saved school records to Supabase? Existing cloud records with the same keys will be replaced by this browser’s data. Passwords and security answers are excluded. This cannot be automatically undone.'
+      'Synchronize this browser’s complete school records and institutional settings to Supabase cloud storage? This will ensure all accounts, settings, academic calendar dates, and signatures are instantly available across every browser and device.'
     )) return;
 
     setIsSyncingBrowser(true);
@@ -148,7 +153,8 @@ export const AdminSchoolSettingsTab: React.FC = () => {
       termName: termControlTermName,
       termEndDate: termControlEndDate,
       sessionName: termResumptionConfig?.session || schoolInfo.activeSession,
-      shouldResetAttendance: true
+      shouldResetAttendance: !isMidwayLaunch,
+      isMidwayLaunch: isMidwayLaunch
     });
     setFormInfo(prev => ({
       ...prev,
@@ -158,7 +164,9 @@ export const AdminSchoolSettingsTab: React.FC = () => {
     }));
     setSavedSuccess(true);
     setStatusMsg(
-      `Term Start Date updated to ${termControlStartDate} (${termControlTermName})! The daily attendance counter for teachers has been automatically reset, and roll call starts at Day 1.`
+      isMidwayLaunch
+        ? `Term Start Date anchored to ${termControlStartDate} (${termControlTermName}) in Midway Launch Mode! Existing attendance records and tallies have been preserved.`
+        : `Term Start Date updated to ${termControlStartDate} (${termControlTermName})! The daily attendance counter for teachers has been automatically reset, and roll call starts at Day 1.`
     );
     setTimeout(() => setSavedSuccess(false), 5500);
   };
@@ -178,12 +186,15 @@ export const AdminSchoolSettingsTab: React.FC = () => {
 
   const handleStartNewTermSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    startNewTerm(newTermName, newTermStartDate, newTermSession);
+    startNewTerm(newTermName, newTermStartDate, newTermSession, newTermEndDate, {
+      isMidwayLaunch: newTermIsMidway
+    });
     setTermStartDate(newTermStartDate, {
       termName: newTermName,
       termEndDate: newTermEndDate,
       sessionName: newTermSession,
-      shouldResetAttendance: true
+      shouldResetAttendance: !newTermIsMidway,
+      isMidwayLaunch: newTermIsMidway
     });
     setFormInfo(prev => ({
       ...prev,
@@ -195,7 +206,9 @@ export const AdminSchoolSettingsTab: React.FC = () => {
     setNewTermModalOpen(false);
     setSavedSuccess(true);
     setStatusMsg(
-      `New academic term (${newTermName}) successfully launched! Daily attendance counter reset to Day 1 starting from ${newTermStartDate}. Class teachers can now mark attendance.`
+      newTermIsMidway
+        ? `Academic term (${newTermName}) configured with start date ${newTermStartDate} in Midway Launch Mode! Existing records preserved.`
+        : `New academic term (${newTermName}) successfully launched! Daily attendance counter reset to Day 1 starting from ${newTermStartDate}. Class teachers can now mark attendance.`
     );
     setTimeout(() => setSavedSuccess(false), 5000);
   };
@@ -418,6 +431,25 @@ export const AdminSchoolSettingsTab: React.FC = () => {
             </span>
           </div>
 
+          <div className="sm:col-span-3 p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-1.5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isMidwayLaunch}
+                onChange={(e) => setIsMidwayLaunch(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+              />
+              <div>
+                <span className="text-xs font-black text-amber-950 block">
+                  Term Already Started in Advance / Midway App Launch Mode
+                </span>
+                <span className="text-[11px] text-amber-800 leading-relaxed block mt-0.5">
+                  Check this if the school term has already commenced before this portal went live. Checking this will <strong>preserve existing student attendance tallies and logs</strong> (instead of resetting to zero), allowing you to anchor the term start date into the past and count ongoing teaching weeks accurately.
+                </span>
+              </div>
+            </label>
+          </div>
+
           <div className="sm:col-span-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-stone-100">
             <div className="text-[11px] text-stone-500 font-medium flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-stone-400" />
@@ -429,7 +461,7 @@ export const AdminSchoolSettingsTab: React.FC = () => {
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Set Term Start Date & Auto-Reset Attendance Counter</span>
+              <span>{isMidwayLaunch ? 'Save Midway Term Start (Preserve Attendance)' : 'Set Term Start Date & Auto-Reset Attendance Counter'}</span>
             </button>
           </div>
         </form>
@@ -596,6 +628,9 @@ export const AdminSchoolSettingsTab: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Official Signatures Management Desk */}
+      <OfficialSignaturesDesk roleFilter="all" />
 
       {/* Multi-Device Cloud Database Sync & Netlify Status */}
       <div className={`p-6 sm:p-7 rounded-3xl border shadow-sm transition-all ${

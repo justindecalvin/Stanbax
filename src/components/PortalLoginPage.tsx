@@ -141,7 +141,7 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
   };
 
   // Forgot Password Reset submit with Security Question verification
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotMsg(null);
 
@@ -176,12 +176,12 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
     }
 
     setIsResetting(true);
-    setTimeout(() => {
-      let res;
+    try {
+      let res: { success: boolean; message: string; role?: UserRole };
       if (currentVerified?.hasQuestion) {
-        res = resetPasswordWithSecurityAnswer(forgotId, forgotSecurityAnswer, forgotNewPass);
+        res = await resetPasswordWithSecurityAnswer(forgotId, forgotSecurityAnswer, forgotNewPass);
       } else {
-        res = forgotPasswordReset(forgotId, forgotNewPass);
+        res = await forgotPasswordReset(forgotId, forgotNewPass);
       }
 
       setIsResetting(false);
@@ -200,7 +200,10 @@ export const PortalLoginPage: React.FC<PortalLoginPageProps> = ({
       } else {
         setForgotMsg({ type: 'error', text: res.message });
       }
-    }, 400);
+    } catch (err: any) {
+      setIsResetting(false);
+      setForgotMsg({ type: 'error', text: err?.message || 'Password reset failed.' });
+    }
   };
 
   return (

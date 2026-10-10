@@ -12,8 +12,10 @@ import {
   AlertCircle,
   Clock,
   Printer,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from '../../RealIcons';
+import { CustomResultsManagerModal } from './CustomResultsManagerModal';
 
 export const AdminResultCollationTab: React.FC = () => {
   const { 
@@ -36,6 +38,7 @@ export const AdminResultCollationTab: React.FC = () => {
   const [examMax, setExamMax] = useState<number>(assessmentConfig.examMax ?? 70);
   const [successMsg, setSuccessMsg] = useState<string>('');
   const [selectedRankingClass, setSelectedRankingClass] = useState<string>('JSS 1 Gold');
+  const [showCustomResultsModal, setShowCustomResultsModal] = useState<boolean>(false);
 
   const totalAssessmentMax = Number(ca1Max) + Number(ca2Max) + Number(ca3Max) + Number(examMax);
 
@@ -131,10 +134,18 @@ export const AdminResultCollationTab: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="px-3 py-1.5 rounded-2xl bg-white/10 text-amber-300 border border-white/10 text-xs font-black">
             Pass Mark: {assessmentConfig.promotionPassMarkPercent}%
           </span>
+          <button
+            type="button"
+            onClick={() => setShowCustomResultsModal(true)}
+            className="px-4 py-2 rounded-2xl bg-amber-400 hover:bg-amber-300 text-blue-950 font-black text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Upload / Manage Custom Results</span>
+          </button>
         </div>
       </div>
 
@@ -749,6 +760,12 @@ export const AdminResultCollationTab: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {showCustomResultsModal && (
+        <CustomResultsManagerModal
+          onClose={() => setShowCustomResultsModal(false)}
+        />
+      )}
     </div>
   );
 };

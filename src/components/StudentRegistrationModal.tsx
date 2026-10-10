@@ -18,7 +18,8 @@ import {
   Check, 
   UserPlus,
   ArrowRight,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Award
 } from './RealIcons';
 import { useSchool } from '../context/SchoolContext';
 import { StudentProfile } from '../types';
@@ -29,6 +30,7 @@ interface StudentRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRegistrationSuccess?: (student: StudentProfile) => void;
+  initialTab?: 'student' | 'alumni';
 }
 
 const PRESET_SECURITY_QUESTIONS = [
@@ -44,9 +46,20 @@ const PRESET_SECURITY_QUESTIONS = [
 export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> = ({
   isOpen,
   onClose,
-  onRegistrationSuccess
+  onRegistrationSuccess,
+  initialTab = 'student'
 }) => {
-  const { classes, registerStudent, loginStudent } = useSchool();
+  const { classes, registerStudent, registerAlumniAccount, loginStudent } = useSchool();
+
+  const [accountType, setAccountType] = useState<'student' | 'alumni'>(initialTab);
+
+  // Alumni-specific fields
+  const [graduationYear, setGraduationYear] = useState<string>(String(new Date().getFullYear() - 1));
+  const [formerClassOrSet, setFormerClassOrSet] = useState<string>('SSS 3 Science');
+  const [formerRegNumber, setFormerRegNumber] = useState<string>('');
+  const [currentOccupation, setCurrentOccupation] = useState<string>('');
+  const [currentInstitution, setCurrentInstitution] = useState<string>('');
+  const [alumniSuccessRecord, setAlumniSuccessRecord] = useState<any | null>(null);
 
   // Form fields
   const [fullName, setFullName] = useState('');
@@ -72,6 +85,12 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [registeredStudent, setRegisteredStudent] = useState<StudentProfile | null>(null);
   const [copiedRegNo, setCopiedRegNo] = useState(false);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setAccountType(initialTab);
+    }
+  }, [initialTab]);
 
   // Set default grade if available
   React.useEffect(() => {
@@ -135,16 +154,16 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
   };
 
   // Form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
     // Validation
     if (!fullName.trim()) {
-      setErrorMessage('Please enter the student full name.');
+      setErrorMessage(accountType === 'alumni' ? 'Please enter your full name.' : 'Please enter the student full name.');
       return;
     }
-    if (!grade) {
+    if (accountType === 'student' && !grade) {
       setErrorMessage('Please select an enrolled class level.');
       return;
     }
@@ -171,7 +190,33 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
       return;
     }
 
-    // Execute registration
+    // Execute Alumni Registration
+    if (accountType === 'alumni') {
+      try {
+        const cleanYear = graduationYear.trim() || '2023';
+        const res = await registerAlumniAccount({
+          fullName: fullName.trim(),
+          graduationYear: cleanYear,
+          email: email.trim() || `${fullName.trim().toLowerCase().replace(/[^a-z0-9]/g, '.')}@alumni.stanbaxschools.edu.ng`,
+          phone: emergencyPhone.trim() || '+234 800 000 0000',
+          formerRegNumber: formerRegNumber.trim() || undefined,
+          formerClassOrSet: formerClassOrSet.trim() || `Class of ${cleanYear}`,
+          password: password.trim(),
+          securityQuestion: finalQuestion,
+          securityAnswer: securityAnswer.trim(),
+          passportPhoto: passportPhoto || undefined,
+          currentOccupation: currentOccupation.trim() || undefined,
+          currentInstitution: currentInstitution.trim() || undefined
+        });
+
+        setAlumniSuccessRecord(res.registration);
+      } catch (err: any) {
+        setErrorMessage(err?.message || 'Failed to submit alumni registration. Please try again.');
+      }
+      return;
+    }
+
+    // Execute Student Registration
     try {
       const created = registerStudent({
         name: fullName.trim(),
@@ -386,9 +431,121 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                 </button>
               </div>
             </div>
+          ) : alumniSuccessRecord ? (
+            /* ALUMNI SUCCESS / PENDING STATE */
+            <div className="space-y-6 text-center py-2 animate-fade-in">
+              <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-inner">
+                <CheckCircle2 className="w-10 h-10 text-amber-700" />
+              </div>
+
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black uppercase tracking-wider mb-2">
+                  <span>Pending Administrative Approval</span>
+                </div>
+                <h3 className="text-xl font-black text-neutral-900">
+                  Alumni Registration Submitted!
+                </h3>
+                <p className="text-xs text-neutral-600 mt-1 max-w-md mx-auto">
+                  Your alumni account has been recorded and will remain pending until approved by the school administrator or academic delegate.
+                </p>
+              </div>
+
+              {/* Alumni Card Preview */}
+              <div className="bg-gradient-to-br from-[#111827] to-[#450A0A] text-white rounded-2xl p-5 max-w-md mx-auto shadow-lg border border-amber-400 text-left relative overflow-hidden">
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0 text-center">
+                    <div className="w-20 h-24 rounded-lg overflow-hidden border-2 border-amber-400 bg-neutral-800 shadow-md flex items-center justify-center">
+                      {passportPhoto ? (
+                        <img 
+                          src={passportPhoto} 
+                          alt={alumniSuccessRecord.fullName} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="p-2 text-center text-amber-300">
+                          <User className="w-8 h-8 mx-auto opacity-70" />
+                          <span className="text-[9px] block mt-1 leading-tight font-medium">Alumni Avatar</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 text-[10px] font-extrabold uppercase tracking-wider border border-amber-400/30 inline-block">
+                      Graduated Alumni • Set {alumniSuccessRecord.graduationYear}
+                    </span>
+                    <h4 className="text-base font-black text-white truncate">
+                      {alumniSuccessRecord.fullName}
+                    </h4>
+                    <p className="text-xs text-[#E5DEC9]">
+                      Set: <strong className="text-white">{alumniSuccessRecord.formerClassOrSet}</strong>
+                    </p>
+                    
+                    <div className="pt-2">
+                      <span className="text-[10px] uppercase text-neutral-300 font-bold block">Assigned Reg Reference</span>
+                      <span className="font-mono text-base font-black text-amber-300 tracking-wider">
+                        {alumniSuccessRecord.formerRegNumber}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-white/15 text-[11px] text-[#E5DEC9] space-y-1">
+                  <div className="flex items-center gap-1.5 text-amber-300 font-bold">
+                    <span>Institutional Verification Required</span>
+                  </div>
+                  <p className="text-[10px] text-neutral-300">
+                    Once the Principal Administrator or Academic Delegate approves this registration, you will be able to log in to access your historical transcripts and result records.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-3 pt-3">
+                <button
+                  onClick={onClose}
+                  className="px-6 py-2.5 rounded-xl bg-neutral-900 text-amber-300 font-bold text-xs hover:bg-black transition cursor-pointer"
+                >
+                  Close & Return to Gateway
+                </button>
+              </div>
+            </div>
           ) : (
             /* REGISTRATION FORM */
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Registration Type Selector Tabs */}
+              <div className="flex p-1 bg-neutral-100 rounded-2xl border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountType('student');
+                    setErrorMessage(null);
+                  }}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer ${
+                    accountType === 'student'
+                      ? 'bg-white text-neutral-900 shadow-sm border border-neutral-300'
+                      : 'text-neutral-500 hover:text-neutral-900'
+                  }`}
+                >
+                  <GraduationCap className="w-4 h-4 text-red-700" />
+                  <span>Current Scholar Enrollment</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountType('alumni');
+                    setErrorMessage(null);
+                  }}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer ${
+                    accountType === 'alumni'
+                      ? 'bg-amber-400 text-neutral-950 shadow-sm border border-amber-300'
+                      : 'text-neutral-500 hover:text-neutral-900'
+                  }`}
+                >
+                  <Award className="w-4 h-4 text-amber-900" />
+                  <span>Graduated Alumni Registration</span>
+                </button>
+              </div>
+
               {/* Error Notice */}
               {errorMessage && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-start gap-2.5 animate-fade-in">
@@ -402,14 +559,14 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                 <div className="flex items-center gap-2 pb-2 border-b border-[#EAE2CE] text-neutral-900">
                   <User className="w-4 h-4 text-red-700" />
                   <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700">
-                    1. Scholar Identity & Academic Placement
+                    {accountType === 'alumni' ? '1. Alumni Identity & Graduation Record' : '1. Scholar Identity & Academic Placement'}
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-neutral-700 mb-1">
-                      Student Full Name <span className="text-rose-500">*</span>
+                      {accountType === 'alumni' ? 'Alumni Full Name' : 'Student Full Name'} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -422,45 +579,95 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 mb-1">
-                      Enrolled Class Level <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      required
-                      value={grade}
-                      onChange={(e) => setGrade(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white cursor-pointer"
-                      id="reg-select-grade"
-                    >
-                      {classes.map((cls) => (
-                        <option key={cls.id} value={cls.name}>
-                          {cls.name} ({cls.category})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {accountType === 'alumni' ? (
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Year of Graduation / Set <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        value={graduationYear}
+                        onChange={(e) => setGraduationYear(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white cursor-pointer"
+                      >
+                        {[2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015].map(year => (
+                          <option key={year} value={String(year)}>
+                            Class of {year}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Enrolled Class Level <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        value={grade}
+                        onChange={(e) => setGrade(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white cursor-pointer"
+                        id="reg-select-grade"
+                      >
+                        {classes.map((cls) => (
+                          <option key={cls.id} value={cls.name}>
+                            {cls.name} ({cls.category})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {accountType === 'alumni' ? (
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Graduating Class / Stream
+                      </label>
+                      <input
+                        type="text"
+                        value={formerClassOrSet}
+                        onChange={(e) => setFormerClassOrSet(e.target.value)}
+                        placeholder="e.g. SSS 3 Science, SSS 3 Arts"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Athletic House
+                      </label>
+                      <select
+                        value={house}
+                        onChange={(e) => setHouse(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white cursor-pointer"
+                        id="reg-select-house"
+                      >
+                        <option value="Sapphire House (Blue)">Sapphire House (Blue)</option>
+                        <option value="Emerald House (Green)">Emerald House (Green)</option>
+                        <option value="Ruby House (Red)">Ruby House (Red)</option>
+                        <option value="Gold House (Yellow)">Gold House (Yellow)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {accountType === 'alumni' ? (
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Former Reg Number <span className="text-neutral-400 text-[11px]">(If remembered)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formerRegNumber}
+                        onChange={(e) => setFormerRegNumber(e.target.value)}
+                        placeholder="e.g. STX/2021/045"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white"
+                      />
+                    </div>
+                  ) : null}
 
                   <div>
                     <label className="block text-xs font-bold text-neutral-700 mb-1">
-                      Athletic House
-                    </label>
-                    <select
-                      value={house}
-                      onChange={(e) => setHouse(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#EAE2CE] text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none bg-[#FAF7EE] focus:bg-white cursor-pointer"
-                      id="reg-select-house"
-                    >
-                      <option value="Sapphire House (Blue)">Sapphire House (Blue)</option>
-                      <option value="Emerald House (Green)">Emerald House (Green)</option>
-                      <option value="Ruby House (Red)">Ruby House (Red)</option>
-                      <option value="Gold House (Yellow)">Gold House (Yellow)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 mb-1">
-                      Parent / Guardian Phone <span className="text-rose-500">*</span>
+                      {accountType === 'alumni' ? 'Contact Telephone' : 'Parent / Guardian Phone'} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="tel"

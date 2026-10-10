@@ -16,10 +16,15 @@ import {
   BookOpen, 
   ArrowRight,
   Filter,
-  Database
+  Database,
+  FileText,
+  Clock,
+  Trash2,
+  Check
 } from '../../RealIcons';
 import { isRemoteEnabled } from '../../../lib/supabase';
 import { NetlifyCloudSyncModal } from './NetlifyCloudSyncModal';
+import { CustomResultsManagerModal } from './CustomResultsManagerModal';
 
 export const AdminStudentsAlumniTab: React.FC = () => {
   const { 
@@ -27,14 +32,19 @@ export const AdminStudentsAlumniTab: React.FC = () => {
     toggleStudentAlumni, 
     upgradeStudentToTutor, 
     createTutorAccount,
+    alumniRegistrations,
+    approveAlumniRegistration,
+    rejectAlumniRegistration,
+    deleteAlumniRegistration,
     schoolInfo 
   } = useSchool();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'active' | 'alumni' | 'upgraded'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'active' | 'alumni' | 'upgraded' | 'pending_alumni'>('all');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSyncModal, setShowSyncModal] = useState(false);
+  const [studentForCustomResults, setStudentForCustomResults] = useState<StudentProfile | null>(null);
 
   // Upgrade confirmation modal
   const [studentToUpgrade, setStudentToUpgrade] = useState<StudentProfile | null>(null);
@@ -72,6 +82,30 @@ export const AdminStudentsAlumniTab: React.FC = () => {
       setSuccessMsg(`${student.name} restored to Active Scholar enrollment.`);
     }
     setTimeout(() => setSuccessMsg(''), 5000);
+  };
+
+  const handleApproveAlumni = async (regId: string) => {
+    const res = await approveAlumniRegistration(regId);
+    if (res.success) {
+      setSuccessMsg(res.message);
+    } else {
+      setErrorMsg(res.message);
+    }
+    setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 5000);
+  };
+
+  const handleRejectAlumni = (regId: string) => {
+    const res = rejectAlumniRegistration(regId);
+    setSuccessMsg(res.message);
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
+  const handleDeleteAlumni = (regId: string) => {
+    if (confirm('Are you sure you want to remove this alumni application record?')) {
+      const res = deleteAlumniRegistration(regId);
+      setSuccessMsg(res.message);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    }
   };
 
   const handleConfirmUpgrade = () => {
@@ -116,6 +150,7 @@ export const AdminStudentsAlumniTab: React.FC = () => {
   const activeCount = students.filter(s => !s.isAlumni).length;
   const alumniCount = students.filter(s => s.isAlumni).length;
   const upgradedCount = students.filter(s => s.isUpgradedTutor).length;
+  const pendingAlumniCount = alumniRegistrations.filter(r => r.status === 'pending').length;
 
   return (
     <div className="space-y-6">
@@ -127,18 +162,29 @@ export const AdminStudentsAlumniTab: React.FC = () => {
             <h2 className="text-lg sm:text-xl font-black">Scholars, Alumni & Privilege Management</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            Designate alumni to preserve past academic history while removing them from active class rosters. Promote exemplary scholars to Tutor privileges or create new Faculty Tutor accounts.
+            Review and approve new alumni account requests, manage graduated scholar records, upload custom or external examination results, and promote scholars to faculty tutors.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowNewTutorModal(true)}
-          className="px-4 py-2.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-2 self-start md:self-auto shrink-0"
-          id="btn-create-tutor-account"
-        >
-          <PlusCircle className="w-4 h-4 text-amber-400" />
-          <span>Create New Tutor Account</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
+          <button
+            onClick={() => setStudentForCustomResults(students[0] || null)}
+            className="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold shadow-xs cursor-pointer transition flex items-center gap-2"
+            title="Upload and manage custom result slips, WAEC, NECO, and certified certificates"
+          >
+            <FileText className="w-4 h-4 text-amber-700" />
+            <span>Manage Custom Results</span>
+          </button>
+
+          <button
+            onClick={() => setShowNewTutorModal(true)}
+            className="px-4 py-2.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white text-xs font-bold shadow-md cursor-pointer transition flex items-center gap-2"
+            id="btn-create-tutor-account"
+          >
+            <PlusCircle className="w-4 h-4 text-amber-400" />
+            <span>Create New Tutor Account</span>
+          </button>
+        </div>
       </div>
 
       {/* Netlify Single Browser Mode Alert */}
@@ -181,7 +227,7 @@ export const AdminStudentsAlumniTab: React.FC = () => {
       )}
 
       {/* Metric Stat Chips */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div 
           onClick={() => setFilterType('all')}
           className={`p-4 rounded-2xl border transition cursor-pointer ${
@@ -209,7 +255,22 @@ export const AdminStudentsAlumniTab: React.FC = () => {
           }`}
         >
           <div className="text-xs uppercase font-bold opacity-80">Graduated Alumni</div>
-          <div className="text-2xl font-black mt-1 text-amber-400">{alumniCount}</div>
+          <div className="text-2xl font-black mt-1 text-amber-500">{alumniCount}</div>
+        </div>
+
+        <div 
+          onClick={() => setFilterType('pending_alumni')}
+          className={`p-4 rounded-2xl border transition cursor-pointer relative ${
+            filterType === 'pending_alumni' ? 'bg-amber-700 text-white border-amber-700 shadow-sm' : 'bg-white border-amber-300 text-slate-800'
+          }`}
+        >
+          <div className="text-xs uppercase font-bold text-amber-800 opacity-90">Pending Alumni</div>
+          <div className="text-2xl font-black mt-1 text-amber-600">{pendingAlumniCount}</div>
+          {pendingAlumniCount > 0 && (
+            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+              Needs Review
+            </span>
+          )}
         </div>
 
         <div 
@@ -238,19 +299,105 @@ export const AdminStudentsAlumniTab: React.FC = () => {
 
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto text-xs">
           <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mr-1">Filter:</span>
-          {(['all', 'active', 'alumni', 'upgraded'] as const).map(t => (
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'active', label: 'Active' },
+            { id: 'alumni', label: 'Alumni' },
+            { id: 'pending_alumni', label: `Pending (${pendingAlumniCount})` },
+            { id: 'upgraded', label: 'Tutors' }
+          ] as const).map(item => (
             <button
-              key={t}
-              onClick={() => setFilterType(t)}
-              className={`px-3 py-1.5 rounded-xl font-bold uppercase text-[11px] transition cursor-pointer ${
-                filterType === t ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              key={item.id}
+              onClick={() => setFilterType(item.id)}
+              className={`px-3 py-1.5 rounded-xl font-bold uppercase text-[11px] transition cursor-pointer shrink-0 ${
+                filterType === item.id 
+                  ? (item.id === 'pending_alumni' ? 'bg-amber-600 text-white' : 'bg-blue-900 text-white') 
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {t}
+              {item.label}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Pending Alumni Applications Review Section */}
+      {alumniRegistrations.filter(r => r.status === 'pending').length > 0 && (
+        <div className="bg-amber-50/60 rounded-3xl p-5 sm:p-6 border border-amber-300 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200">
+            <div className="flex items-center gap-2 text-amber-950">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <h3 className="text-base font-black">
+                Pending Alumni Registration Requests ({alumniRegistrations.filter(r => r.status === 'pending').length})
+              </h3>
+            </div>
+            <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300">
+              Action Required by Admin or Academic Delegate
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {alumniRegistrations.filter(r => r.status === 'pending').map((reg) => (
+              <div 
+                key={reg.id}
+                className="bg-white rounded-2xl p-4 border border-amber-200 shadow-2xs space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="font-black text-sm text-slate-900">{reg.fullName}</h4>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-0.5">
+                      <span className="font-mono font-bold text-blue-900 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        {reg.formerRegNumber || 'Reg No Not Provided'}
+                      </span>
+                      <span>•</span>
+                      <span>Class of {reg.graduationYear}</span>
+                    </div>
+                  </div>
+
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                    Pending
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Email</span>
+                    <span className="font-medium text-slate-800 break-all">{reg.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Phone</span>
+                    <span className="font-medium text-slate-800">{reg.phone}</span>
+                  </div>
+                  {reg.currentOccupation && (
+                    <div className="col-span-2">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Occupation / Institution</span>
+                      <span className="font-medium text-slate-800">{reg.currentOccupation} {reg.currentInstitution ? `(${reg.currentInstitution})` : ''}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => handleRejectAlumni(reg.id)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 hover:bg-rose-50 border border-rose-200 transition cursor-pointer"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApproveAlumni(reg.id)}
+                    className="px-4 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Approve Account</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Students Directory List */}
       <div className="space-y-3">
@@ -303,8 +450,19 @@ export const AdminStudentsAlumniTab: React.FC = () => {
                 )}
               </div>
 
-              {/* Action Buttons */}
+      {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* Custom Results Manager */}
+                <button
+                  type="button"
+                  onClick={() => setStudentForCustomResults(std)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-300"
+                  title="Upload or view custom/external results and certificates for this scholar"
+                >
+                  <FileText className="w-3.5 h-3.5 text-blue-800" />
+                  <span>Results & Transcripts</span>
+                </button>
+
                 {/* Toggle Alumni Status */}
                 <button
                   onClick={() => handleToggleAlumni(std)}
@@ -534,6 +692,14 @@ export const AdminStudentsAlumniTab: React.FC = () => {
         isOpen={showSyncModal}
         onClose={() => setShowSyncModal(false)}
       />
+
+      {/* Custom & External Results Manager Modal */}
+      {studentForCustomResults && (
+        <CustomResultsManagerModal
+          initialStudent={studentForCustomResults}
+          onClose={() => setStudentForCustomResults(null)}
+        />
+      )}
     </div>
   );
 };

@@ -32,6 +32,7 @@ import { AdminCampusGalleryTab } from './admin/AdminCampusGalleryTab';
 import { SchoolChatSystem } from '../chat/SchoolChatSystem';
 import { SchoolPrefectBadgesModal } from '../chat/ChatLeadershipModals';
 import { AdminVisitorInquiriesSubTab } from './admin/AdminVisitorInquiriesSubTab';
+import { OfficialSignaturesDesk } from './OfficialSignaturesDesk';
 
 interface HeadmistressPortalProps {
   onBackToWebsite: () => void;
@@ -44,6 +45,7 @@ type HeadmistressTab =
   | 'students' 
   | 'faculty' 
   | 'calendar' 
+  | 'signature'
   | 'broadcasts' 
   | 'chat' 
   | 'gallery';
@@ -82,6 +84,7 @@ export const HeadmistressPortal: React.FC<HeadmistressPortalProps> = ({ onBackTo
     { id: 'students', label: 'Scholars & Admissions', icon: GraduationCap, privilegeKey: 'manage_students', badge: students.length },
     { id: 'faculty', label: 'Faculty Staff Oversight', icon: Users, privilegeKey: 'manage_faculty', badge: tutors.length },
     { id: 'calendar', label: 'Term Calendar & Events', icon: Calendar, privilegeKey: 'school_calendar' },
+    { id: 'signature', label: 'Official Signature & Stamp', icon: ShieldCheck, badge: 'Primary' },
     { id: 'broadcasts', label: 'Notices & Broadcasts', icon: Radio, privilegeKey: 'broadcasts_notices' },
     { id: 'chat', label: 'Community & Moderation', icon: MessageSquare, privilegeKey: 'community_chat_moderation' },
     { id: 'gallery', label: 'Campus Media Gallery', icon: Camera, privilegeKey: 'campus_gallery' }
@@ -330,6 +333,14 @@ export const HeadmistressPortal: React.FC<HeadmistressPortalProps> = ({ onBackTo
             ) : (
               <AccessRestrictedBanner privilege="school_calendar" title="Academic Calendar & Term Resumption" />
             )
+          )}
+
+          {activeTab === 'signature' && (
+            <OfficialSignaturesDesk
+              roleFilter="headmistress"
+              title="Head Mistress Official Signature & Stamp Desk"
+              description="Authorize and configure the Headmistress digital signature and official stamp displayed on Early Years and Primary (Nursery, Reception & Basic 1–6) terminal report cards and certificates."
+            />
           )}
 
           {activeTab === 'broadcasts' && (

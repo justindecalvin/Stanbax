@@ -90,7 +90,10 @@ import {
   HeadmistressProfile,
   ModeratorProfile,
   PrivilegeKey,
-  RolePrivilegeSettings
+  RolePrivilegeSettings,
+  OfficialSignatures,
+  AlumniRegistration,
+  CustomResult
 } from '../types';
 import { 
   DEFAULT_ROLE_PRIVILEGES, 
@@ -365,6 +368,36 @@ interface SchoolContextType {
     bio?: string;
   }) => TutorProfile;
 
+  // Official Institutional Signatures
+  officialSignatures: OfficialSignatures;
+  updateOfficialSignatures: (signatures: Partial<OfficialSignatures>) => void;
+
+  // Alumni Registration & Approval Workflow
+  alumniRegistrations: AlumniRegistration[];
+  registerAlumniAccount: (data: {
+    fullName: string;
+    graduationYear: string;
+    email: string;
+    phone: string;
+    formerRegNumber?: string;
+    formerClassOrSet?: string;
+    password?: string;
+    securityQuestion?: string;
+    securityAnswer?: string;
+    passportPhoto?: string;
+    currentOccupation?: string;
+    currentInstitution?: string;
+  }) => Promise<{ success: boolean; message: string; registration: AlumniRegistration }>;
+  approveAlumniRegistration: (id: string) => Promise<{ success: boolean; message: string }>;
+  rejectAlumniRegistration: (id: string, reason?: string) => { success: boolean; message: string };
+  deleteAlumniRegistration: (id: string) => { success: boolean; message: string };
+
+  // Custom Results Management
+  customResults: CustomResult[];
+  uploadCustomResult: (data: Omit<CustomResult, 'id' | 'uploadedAt'> & { studentId?: string; studentRegNumber?: string }) => CustomResult;
+  deleteCustomResult: (resultId: string) => boolean;
+  getStudentCustomResults: (studentIdOrReg: string) => CustomResult[];
+
   // 13C. Password Management & Admin Security Vault
   changePassword: (userRole: UserRole, currentPass: string, newPass: string, userId?: string) => Promise<{ success: boolean; message: string }>;
   forgotPasswordReset: (identifier: string, newPassword: string) => { success: boolean; message: string; role?: UserRole };
@@ -505,11 +538,20 @@ interface SchoolContextType {
       termName?: string;
       sessionName?: string;
       shouldResetAttendance?: boolean;
+      isMidwayLaunch?: boolean;
+      midwayElapsedDays?: number;
+      midwayStartWeek?: number;
     }
   ) => void;
   setTermResumptionDate: (date: string, termName?: string, sessionName?: string, termEndDate?: string) => void;
   resetDailyAttendanceCounter: () => void;
-  startNewTerm: (termName: string, startDate: string, sessionName?: string, endDate?: string) => void;
+  startNewTerm: (
+    termName: string, 
+    startDate: string, 
+    sessionName?: string, 
+    endDate?: string,
+    options?: { isMidwayLaunch?: boolean; midwayElapsedDays?: number; midwayStartWeek?: number }
+  ) => void;
   submitDailyAttendance: (record: Omit<AttendanceDailyRecord, 'id' | 'submittedAt'>) => AttendanceDailyRecord;
   getClassAttendanceSummary: (classId: string, term?: string) => ClassAttendanceSummary;
   getStudentAttendanceSummary: (studentId: string, term?: string) => StudentAttendanceSummary;
@@ -3089,6 +3131,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const matchedStudent = res.refId ? students.find(s => s.id === res.refId) : undefined;
         switch (role) {
           case 'admin':
+            setAdminPassword(cleanPass);
+            localStorage.setItem('stanbax_admin_password', cleanPass);
             setIsAdminAuthenticated(true);
             localStorage.setItem('stanbax_admin_auth', 'true');
             sessionStorage.setItem('stanbax_admin_auth', 'true');
@@ -3096,6 +3140,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sessionStorage.setItem('stanbax_active_section', 'admin-portal');
             break;
           case 'proprietress':
+            setProprietressPassword(cleanPass);
+            localStorage.setItem('stanbax_proprietress_password', cleanPass);
             setIsProprietressAuthenticated(true);
             localStorage.setItem('stanbax_proprietress_auth', 'true');
             sessionStorage.setItem('stanbax_proprietress_auth', 'true');
@@ -3103,6 +3149,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sessionStorage.setItem('stanbax_active_section', 'proprietress-portal');
             break;
           case 'headmistress':
+            setHeadmistressPassword(cleanPass);
+            localStorage.setItem('stanbax_headmistress_password', cleanPass);
             setIsHeadmistressAuthenticated(true);
             localStorage.setItem('stanbax_headmistress_auth', 'true');
             sessionStorage.setItem('stanbax_headmistress_auth', 'true');
@@ -3110,6 +3158,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sessionStorage.setItem('stanbax_active_section', 'headmistress-portal');
             break;
           case 'moderator':
+            setModeratorPassword(cleanPass);
+            localStorage.setItem('stanbax_moderator_password', cleanPass);
             setIsModeratorAuthenticated(true);
             if (res.refId) {
               setActiveModeratorId(res.refId);
@@ -3350,6 +3400,12 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     if (matchedStudent) {
+      if (matchedStudent.isAlumni && (matchedStudent as any).alumniApprovalStatus === 'pending') {
+        return { 
+          success: false, 
+          message: 'Your Alumni account registration is pending approval by the School Administration or Academic Delegate. You will be able to access your records once approved.' 
+        };
+      }
       const expectedPass = matchedStudent.password || 'stanbax2025';
       if (cleanPass === expectedPass) {
         clearOtherRoles('student');
@@ -3387,6 +3443,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'admin') return false;
+        setAdminPassword(pass);
+        localStorage.setItem('stanbax_admin_password', pass);
         setIsAdminAuthenticated(true);
         localStorage.setItem('stanbax_admin_auth', 'true');
         sessionStorage.setItem('stanbax_admin_auth', 'true');
@@ -3425,6 +3483,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'proprietress') return false;
+        setProprietressPassword(pass);
+        localStorage.setItem('stanbax_proprietress_password', pass);
         setIsProprietressAuthenticated(true);
         localStorage.setItem('stanbax_proprietress_auth', 'true');
         sessionStorage.setItem('stanbax_proprietress_auth', 'true');
@@ -3469,6 +3529,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (res.unreachable) return false;
       if (!res.unreachable) {
         if (!res.ok || res.role !== 'headmistress') return false;
+        setHeadmistressPassword(pass);
+        localStorage.setItem('stanbax_headmistress_password', pass);
         clearOtherRoles('headmistress');
         setIsHeadmistressAuthenticated(true);
         localStorage.setItem('stanbax_headmistress_auth', 'true');
@@ -3672,6 +3734,13 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!remoteStudent && !matchedStudent) {
           return { success: false, message: 'No active student record matches that Registration Number. Please verify registration slip.' };
         }
+        const studentToVerify = remoteStudent || matchedStudent;
+        if (studentToVerify?.isAlumni && (studentToVerify as any).alumniApprovalStatus === 'pending') {
+          return {
+            success: false,
+            message: 'Your Alumni account registration is pending approval by the School Administration or Academic Delegate. You will be able to access your records once approved.'
+          };
+        }
         const sid = res.refId || matchedStudent!.id;
         clearOtherRoles('student');
         setIsStudentAuthenticated(true);
@@ -3691,6 +3760,13 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { 
         success: false, 
         message: 'No active student record matches that Registration Number. Please verify registration slip.' 
+      };
+    }
+
+    if (matchedStudent.isAlumni && (matchedStudent as any).alumniApprovalStatus === 'pending') {
+      return {
+        success: false,
+        message: 'Your Alumni account registration is pending approval by the School Administration or Academic Delegate. You will be able to access your records once approved.'
       };
     }
 
@@ -3821,6 +3897,263 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setActiveSection('home');
   };
 
+  // 13A-2. Institutional Official Signatures (Headmistress, Principal Admin, Principal Academics)
+  const [officialSignatures, setOfficialSignatures] = useState<OfficialSignatures>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_official_signatures');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      headmistressSignature: schoolInfo.headmistressSignature || '',
+      headmistressName: schoolInfo.headmistressName || 'Mrs. Adediran O. (Headmistress)',
+      headmistressTitle: schoolInfo.headmistressTitle || 'Headmistress, Primary & Early Childhood',
+      principalAdminSignature: schoolInfo.principalSignature || '',
+      principalAdminName: schoolInfo.principalName || 'Dr. Babatunde Ogunlesi (Principal)',
+      principalAdminTitle: schoolInfo.principalTitle || 'Principal & Executive Director',
+      principalAcademicsSignature: schoolInfo.academicsSignature || '',
+      principalAcademicsName: schoolInfo.academicsName || 'Engr. Olumide Ogunleye (Dean of Academics)',
+      principalAcademicsTitle: schoolInfo.academicsTitle || 'Dean of Academics & Examination Controller',
+      generalPrincipalSignature: schoolInfo.principalSignature || ''
+    };
+  });
+
+  const updateOfficialSignatures = (data: Partial<OfficialSignatures>) => {
+    setOfficialSignatures(prev => {
+      const next = { ...prev, ...data, updatedAt: new Date().toISOString() };
+      try {
+        localStorage.setItem('stanbax_official_signatures', JSON.stringify(next));
+      } catch {}
+      // Sync to schoolInfo for universal accessibility across portals & printouts
+      updateSchoolInfo({
+        ...(data.headmistressSignature !== undefined ? { headmistressSignature: data.headmistressSignature } : {}),
+        ...(data.headmistressName !== undefined ? { headmistressName: data.headmistressName } : {}),
+        ...(data.headmistressTitle !== undefined ? { headmistressTitle: data.headmistressTitle } : {}),
+        ...(data.principalAdminSignature !== undefined ? { principalSignature: data.principalAdminSignature } : {}),
+        ...(data.principalAdminName !== undefined ? { principalName: data.principalAdminName } : {}),
+        ...(data.principalAdminTitle !== undefined ? { principalTitle: data.principalAdminTitle } : {}),
+        ...(data.principalAcademicsSignature !== undefined ? { academicsSignature: data.principalAcademicsSignature } : {}),
+        ...(data.principalAcademicsName !== undefined ? { academicsName: data.principalAcademicsName } : {}),
+        ...(data.principalAcademicsTitle !== undefined ? { academicsTitle: data.principalAcademicsTitle } : {}),
+      });
+      return next;
+    });
+  };
+
+  // 13B-1. Alumni Registration & Approval Workflow
+  const [alumniRegistrations, setAlumniRegistrations] = useState<AlumniRegistration[]>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_alumni_registrations');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const registerAlumniAccount = async (data: {
+    fullName: string;
+    graduationYear: string;
+    email: string;
+    phone: string;
+    formerRegNumber?: string;
+    formerClassOrSet?: string;
+    password?: string;
+    securityQuestion?: string;
+    securityAnswer?: string;
+    passportPhoto?: string;
+    currentOccupation?: string;
+    currentInstitution?: string;
+  }): Promise<{ success: boolean; message: string; registration: AlumniRegistration }> => {
+    const regId = `alm-reg-${Date.now()}`;
+    const studentId = `std-alm-${Date.now()}`;
+    const cleanYear = data.graduationYear.trim() || String(new Date().getFullYear() - 1);
+    const generatedRegNo = data.formerRegNumber?.trim() || `STX/ALM/${cleanYear}/${String(students.length + 101).padStart(3, '0')}`;
+    
+    const newReg: AlumniRegistration = {
+      id: regId,
+      fullName: data.fullName.trim(),
+      graduationYear: cleanYear,
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      formerRegNumber: generatedRegNo,
+      formerClassOrSet: data.formerClassOrSet?.trim() || `Class of ${cleanYear}`,
+      currentOccupation: data.currentOccupation?.trim(),
+      currentInstitution: data.currentInstitution?.trim(),
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+      assignedStudentId: studentId
+    };
+
+    const alumniStudent: StudentProfile = {
+      id: studentId,
+      name: data.fullName.trim(),
+      regNumber: generatedRegNo,
+      grade: `Alumni (Class of ${cleanYear})`,
+      classId: 'class-alumni',
+      gender: 'Male',
+      house: 'Gold House',
+      parentName: 'Alumni Directory Record',
+      parentPhone: data.phone.trim(),
+      emergencyPhone: data.phone.trim(),
+      email: data.email.trim(),
+      password: data.password || 'stanbax2025',
+      securityQuestion: data.securityQuestion,
+      securityAnswer: data.securityAnswer,
+      passportPhoto: data.passportPhoto || '',
+      isAlumni: true,
+      alumniApprovalStatus: 'pending',
+      graduationYear: cleanYear,
+      graduationSession: `${cleanYear} Academic Set`,
+      attendancePercent: 100,
+      attendanceDays: 0,
+      totalSchoolDays: 0,
+      termAverage: 82,
+      academicHistory: [],
+      customResults: []
+    };
+
+    setAlumniRegistrations(prev => {
+      const next = [newReg, ...prev];
+      try { localStorage.setItem('stanbax_alumni_registrations', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    setStudents(prev => {
+      const next = [alumniStudent, ...prev];
+      try { localStorage.setItem('stanbax_students', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    return {
+      success: true,
+      message: `Alumni account registered for ${data.fullName}! Your account is currently pending approval by the School Administration or Academic Delegate. You will be able to log in once approved.`,
+      registration: newReg
+    };
+  };
+
+  const approveAlumniRegistration = async (id: string): Promise<{ success: boolean; message: string }> => {
+    const reg = alumniRegistrations.find(r => r.id === id);
+    if (!reg) return { success: false, message: 'Alumni registration record not found.' };
+
+    const studentRecord = students.find(s => s.id === reg.assignedStudentId || s.regNumber === reg.formerRegNumber);
+
+    setAlumniRegistrations(prev => {
+      const next = prev.map(r => r.id === id ? { ...r, status: 'approved' as const, reviewedAt: new Date().toISOString(), reviewedBy: 'Admin / Academic Delegate' } : r);
+      try { localStorage.setItem('stanbax_alumni_registrations', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    if (studentRecord) {
+      updateStudent(studentRecord.id, {
+        alumniApprovalStatus: 'approved'
+      });
+      // Provision credential in Supabase so alumni can log in remotely
+      try {
+        await remoteCreateCredential(
+          studentRecord.regNumber,
+          studentRecord.password || 'stanbax2025',
+          'student',
+          studentRecord.id,
+          [studentRecord.email, studentRecord.name.toLowerCase()].filter((x): x is string => Boolean(x))
+        );
+      } catch (err) {
+        console.warn('Could not auto-provision alumni credential in Supabase:', err);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Alumni account for ${reg.fullName} (${reg.formerRegNumber}) has been approved! They can now log in to the portal.`
+    };
+  };
+
+  const rejectAlumniRegistration = (id: string, reason?: string) => {
+    setAlumniRegistrations(prev => {
+      const next = prev.map(r => r.id === id ? { ...r, status: 'rejected' as const, reviewedAt: new Date().toISOString(), rejectionReason: reason || 'Application details could not be validated by administration.' } : r);
+      try { localStorage.setItem('stanbax_alumni_registrations', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    return { success: true, message: 'Alumni registration rejected.' };
+  };
+
+  const deleteAlumniRegistration = (id: string) => {
+    const reg = alumniRegistrations.find(r => r.id === id);
+    if (reg?.assignedStudentId) {
+      deleteStudent(reg.assignedStudentId);
+    }
+    setAlumniRegistrations(prev => {
+      const next = prev.filter(r => r.id !== id);
+      try { localStorage.setItem('stanbax_alumni_registrations', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    return { success: true, message: 'Alumni registration record removed.' };
+  };
+
+  // 13B-2. Custom Results Management (Upload & Deletion for Students & Alumni)
+  const [customResults, setCustomResults] = useState<CustomResult[]>(() => {
+    try {
+      const saved = localStorage.getItem('stanbax_custom_results');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const uploadCustomResult = (data: Omit<CustomResult, 'id' | 'uploadedAt'> & { studentId?: string; studentRegNumber?: string }): CustomResult => {
+    const newResult: CustomResult = {
+      id: `cres-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: 'Admin / Academic Delegate',
+      ...data
+    };
+
+    setCustomResults(prev => {
+      const next = [newResult, ...prev];
+      try { localStorage.setItem('stanbax_custom_results', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    if (data.studentId || data.studentRegNumber) {
+      const target = students.find(s => (data.studentId && s.id === data.studentId) || (data.studentRegNumber && s.regNumber.toLowerCase() === data.studentRegNumber.toLowerCase()));
+      if (target) {
+        const existing = target.customResults || [];
+        updateStudent(target.id, {
+          customResults: [newResult, ...existing]
+        });
+      }
+    }
+
+    return newResult;
+  };
+
+  const deleteCustomResult = (resultId: string): boolean => {
+    setCustomResults(prev => {
+      const next = prev.filter(r => r.id !== resultId);
+      try { localStorage.setItem('stanbax_custom_results', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    setStudents(prev => {
+      const next = prev.map(s => {
+        if (!s.customResults || !s.customResults.some(r => r.id === resultId)) return s;
+        return {
+          ...s,
+          customResults: s.customResults.filter(r => r.id !== resultId)
+        };
+      });
+      try { localStorage.setItem('stanbax_students', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    return true;
+  };
+
+  const getStudentCustomResults = (studentIdOrReg: string): CustomResult[] => {
+    const targetNorm = studentIdOrReg.trim().toLowerCase();
+    return customResults.filter(r => {
+      const rId = (r as any).studentId?.toLowerCase();
+      const rReg = (r as any).studentRegNumber?.toLowerCase();
+      return rId === targetNorm || rReg === targetNorm;
+    });
+  };
+
   // 13B. Alumni Management
   const toggleStudentAlumni = (studentId: string, isAlumni: boolean, graduationSession?: string) => {
     const sessionToUse = graduationSession || `${schoolInfo.activeSession} (Graduated Alumni)`;
@@ -3843,6 +4176,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const tutorEmail = targetStudent.email || `${targetStudent.name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@stanbaxschools.edu.ng`;
     const tutorPassword = targetStudent.password || 'stanbax2025';
 
+    const studentCustomRes = customResults.filter(cr => (cr as any).studentId === targetStudent.id || (cr as any).studentRegNumber === targetStudent.regNumber || (targetStudent.customResults || []).some(tc => tc.id === cr.id));
+
     const newTutorProfile: TutorProfile = {
       id: tutorId,
       staffId,
@@ -3858,7 +4193,13 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       studentOriginId: targetStudent.id,
       studentRegNumber: targetStudent.regNumber,
       assignedClasses: [targetStudent.grade],
-      assignedSubjects: ['Mathematics', 'Basic Science & Technology']
+      assignedSubjects: ['Mathematics', 'Basic Science & Technology'],
+      retainedAcademicResults: {
+        grades: grades.filter(g => g.studentId === targetStudent.id),
+        academicHistory: targetStudent.academicHistory || [],
+        customResults: studentCustomRes,
+        termAverage: targetStudent.termAverage
+      }
     };
 
     setTutors(prev => {
@@ -3997,19 +4338,19 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     switch (userRole) {
       case 'admin':
         setAdminPassword(newPass);
-        localStorage.removeItem('stanbax_admin_password');
+        localStorage.setItem('stanbax_admin_password', newPass);
         break;
       case 'proprietress':
         setProprietressPassword(newPass);
-        localStorage.removeItem('stanbax_proprietress_password');
+        localStorage.setItem('stanbax_proprietress_password', newPass);
         break;
       case 'headmistress':
         setHeadmistressPassword(newPass);
-        localStorage.removeItem('stanbax_headmistress_password');
+        localStorage.setItem('stanbax_headmistress_password', newPass);
         break;
       case 'moderator':
         setModeratorPassword(newPass);
-        localStorage.removeItem('stanbax_moderator_password');
+        localStorage.setItem('stanbax_moderator_password', newPass);
         break;
       case 'tutor':
         updateTutor(account.id, { password: newPass });
@@ -4391,24 +4732,35 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const result = await remoteChangePassword(cloudIdentifier, null, newPassword);
     if (!result.ok) {
-      return { success: false, message: result.message || 'Supabase rejected the password reset.' };
+      // If the account was not yet provisioned in public.credentials (e.g. local-seeded student or newly registered alumni),
+      // provision it directly using remoteCreateCredential with the new password
+      const createRes = await remoteCreateCredential(
+        cloudIdentifier,
+        newPassword,
+        userRole,
+        userId,
+        [userId.toLowerCase(), cloudIdentifier.toLowerCase()]
+      );
+      if (!createRes.ok) {
+        return { success: false, message: result.message || createRes.message || 'Supabase rejected the password reset.' };
+      }
     }
     switch (userRole) {
       case 'admin':
         setAdminPassword(newPassword);
-        localStorage.removeItem('stanbax_admin_password');
+        localStorage.setItem('stanbax_admin_password', newPassword);
         break;
       case 'proprietress':
         setProprietressPassword(newPassword);
-        localStorage.removeItem('stanbax_proprietress_password');
+        localStorage.setItem('stanbax_proprietress_password', newPassword);
         break;
       case 'headmistress':
         setHeadmistressPassword(newPassword);
-        localStorage.removeItem('stanbax_headmistress_password');
+        localStorage.setItem('stanbax_headmistress_password', newPassword);
         break;
       case 'moderator':
         setModeratorPassword(newPassword);
-        localStorage.removeItem('stanbax_moderator_password');
+        localStorage.setItem('stanbax_moderator_password', newPassword);
         break;
       case 'tutor':
         updateTutor(userId, { password: newPassword });
@@ -4820,12 +5172,24 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       termName?: string;
       sessionName?: string;
       shouldResetAttendance?: boolean;
+      isMidwayLaunch?: boolean;
+      midwayElapsedDays?: number;
+      midwayStartWeek?: number;
     }
   ) => {
-    const shouldReset = options?.shouldResetAttendance !== false;
+    const isMidway = !!options?.isMidwayLaunch;
+    const shouldReset = isMidway ? false : (options?.shouldResetAttendance !== false);
     const computedEndDate = options?.termEndDate || termResumptionConfig.termEndDate || '2026-12-18';
     const computedTermName = options?.termName || termResumptionConfig.termName;
     const computedSession = options?.sessionName || termResumptionConfig.session;
+
+    // Calculate approximate school days elapsed if launching midway
+    const startMs = new Date(date).getTime();
+    const nowMs = Date.now();
+    const calendarDays = Math.max(1, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
+    const calculatedSchoolDays = Math.max(1, Math.floor((calendarDays * 5) / 7));
+    const midwayDays = options?.midwayElapsedDays ?? (isMidway ? calculatedSchoolDays : undefined);
+    const midwayWeek = options?.midwayStartWeek ?? (isMidway ? Math.min(12, Math.max(1, Math.ceil((midwayDays || calculatedSchoolDays) / 5))) : undefined);
 
     const updated: TermResumptionConfig = {
       ...termResumptionConfig,
@@ -4833,19 +5197,23 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       termEndDate: computedEndDate,
       termName: computedTermName,
       session: computedSession,
-      isTermActive: true
+      isTermActive: true,
+      isMidwayLaunch: isMidway,
+      midwayElapsedDays: midwayDays,
+      midwayStartWeek: midwayWeek
     };
     setTermResumptionConfig(updated);
     try { localStorage.setItem('stanbax_term_resumption_config', JSON.stringify(updated)); } catch {}
 
     updateSchoolInfo({
       resumptionDate: date,
+      termStartDate: date,
       vacationDate: computedEndDate,
       ...(options?.termName ? { activeTerm: options.termName } : {}),
       ...(options?.sessionName ? { activeSession: options.sessionName } : {})
     });
 
-    // Automatically trigger the resetting of the daily attendance counter for teachers
+    // Reset attendance only if NOT midway launch
     if (shouldReset) {
       resetDailyAttendanceCounter();
     }
@@ -4860,21 +5228,41 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const startNewTerm = (termName: string, startDate: string, sessionName?: string, endDate?: string) => {
+  const startNewTerm = (
+    termName: string, 
+    startDate: string, 
+    sessionName?: string, 
+    endDate?: string,
+    options?: { isMidwayLaunch?: boolean; midwayElapsedDays?: number; midwayStartWeek?: number }
+  ) => {
     const computedEndDate = endDate || (termName === '1st Term' ? '2026-12-18' : termName === '2nd Term' ? '2027-04-02' : '2027-07-16');
+    const isMidway = !!options?.isMidwayLaunch;
+    
+    // Calculate approximate school days elapsed if launching midway
+    const startMs = new Date(startDate).getTime();
+    const nowMs = Date.now();
+    const calendarDays = Math.max(1, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
+    const calculatedSchoolDays = Math.max(1, Math.floor((calendarDays * 5) / 7));
+    const midwayDays = options?.midwayElapsedDays ?? (isMidway ? calculatedSchoolDays : undefined);
+    const midwayWeek = options?.midwayStartWeek ?? (isMidway ? Math.min(12, Math.max(1, Math.ceil((midwayDays || calculatedSchoolDays) / 5))) : undefined);
+
     const updated: TermResumptionConfig = {
       termStartDate: startDate,
       termEndDate: computedEndDate,
       termName: termName,
       session: sessionName || assessmentConfig.activeSession || '2025/2026 Academic Session',
       isTermActive: true,
-      totalSchoolDaysPlanned: 60
+      totalSchoolDaysPlanned: 60,
+      isMidwayLaunch: isMidway,
+      midwayElapsedDays: midwayDays,
+      midwayStartWeek: midwayWeek
     };
     setTermResumptionConfig(updated);
     try { localStorage.setItem('stanbax_term_resumption_config', JSON.stringify(updated)); } catch {}
 
     updateSchoolInfo({
       resumptionDate: startDate,
+      termStartDate: startDate,
       vacationDate: computedEndDate,
       activeTerm: `${termName} ${termName === '1st Term' ? '(Michaelmas Term)' : termName === '2nd Term' ? '(Lent Term)' : '(Trinity Term)'}`,
       ...(sessionName ? { activeSession: sessionName } : {})
@@ -4885,8 +5273,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       activePhase: 'mid_term_ca'
     });
 
-    // Automatically trigger the resetting of the daily attendance counter for teachers
-    resetDailyAttendanceCounter();
+    if (!isMidway) {
+      resetDailyAttendanceCounter();
+    }
   };
 
   const submitDailyAttendance = (recordData: Omit<AttendanceDailyRecord, 'id' | 'submittedAt'>) => {
@@ -7384,6 +7773,17 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         upgradeStudentToTutor,
         completeTutorProfile,
         createTutorAccount,
+        officialSignatures,
+        updateOfficialSignatures,
+        alumniRegistrations,
+        registerAlumniAccount,
+        approveAlumniRegistration,
+        rejectAlumniRegistration,
+        deleteAlumniRegistration,
+        customResults,
+        uploadCustomResult,
+        deleteCustomResult,
+        getStudentCustomResults,
         changePassword,
         forgotPasswordReset,
         getSecurityQuestionForUser,

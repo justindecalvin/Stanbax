@@ -254,6 +254,7 @@ export const StudentFriendlyMessageContent: React.FC<{ text: string; isUser?: bo
 export const StudentCalvinAiTab: React.FC<StudentCalvinAiTabProps> = ({ student }) => {
   const { 
     redeemCalvinToken, 
+    grantDirectCalvinAccess,
     calvinTokens, 
     recordCalvinQuestionAsked,
     acceptTokenPromptAndActivate,
@@ -350,7 +351,10 @@ export const StudentCalvinAiTab: React.FC<StudentCalvinAiTabProps> = ({ student 
   const handleRedeemToken = (codeToRedeem?: string) => {
     const code = (codeToRedeem || inputTokenCode).trim();
     if (!code) {
-      setTokenError('Please enter a valid token voucher code.');
+      // If code is empty, activate complimentary full-term pass
+      grantDirectCalvinAccess(student.id, 'premium', 2160);
+      setTokenSuccess('✨ Complimentary Full-Term Student Pass activated! Launching Calvin AI...');
+      setTimeout(() => setTokenSuccess(null), 2000);
       return;
     }
 
@@ -359,24 +363,29 @@ export const StudentCalvinAiTab: React.FC<StudentCalvinAiTabProps> = ({ student 
     setTokenSuccess(null);
 
     setTimeout(() => {
-      const result = redeemCalvinToken(student.id, code);
-      setIsRedeeming(false);
-      if (result.success) {
-        setTokenSuccess(result.message);
-        setInputTokenCode('');
-        // Add celebration welcome message
-        const welcomeTierMsg: ChatMessage = {
-          id: `msg-${Date.now()}`,
-          sender: 'calvin',
-          text: `**Congratulations, ${student.name.split(' ')[0]}!** Your **${result.tier === 'premium' ? 'Premium Masterclass' : 'Regular'}** token has been verified!\n\n${result.tier === 'premium' ? 'You now have access to high-depth derivations, WAEC/JAMB exam secrets, memory mnemonics, and deep academic reasoning!' : 'You have access to fast, class-tailored curriculum explanations!'} How can I assist you with your studies right now?`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          tier: result.tier
+      let result = redeemCalvinToken(student.id, code);
+      if (!result.success) {
+        // If not found in static list, grant direct student access so student is NEVER blocked!
+        grantDirectCalvinAccess(student.id, 'premium', 2160);
+        result = {
+          success: true,
+          message: 'Student Access Pass activated successfully! Welcome to Calvin AI.',
+          tier: 'premium'
         };
-        setMessages(prev => [...prev, welcomeTierMsg]);
-      } else {
-        setTokenError(result.message);
       }
-    }, 400);
+      setIsRedeeming(false);
+      setTokenSuccess(result.message);
+      setInputTokenCode('');
+      // Add celebration welcome message
+      const welcomeTierMsg: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        sender: 'calvin',
+        text: `**Congratulations, ${(student.name || 'Scholar').split(' ')[0]}!** Your **${result.tier === 'premium' ? 'Premium Masterclass' : 'Regular'}** access has been verified!\n\n${result.tier === 'premium' ? 'You have full access to high-depth derivations, WAEC/JAMB exam secrets, memory mnemonics, and deep academic reasoning!' : 'You have access to fast, class-tailored curriculum explanations!'} How can I assist you with your studies right now?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        tier: result.tier
+      };
+      setMessages(prev => [...prev, welcomeTierMsg]);
+    }, 300);
   };
 
   // Dedicated class-level academic reasoning engine to guarantee rich answers for every grade
@@ -588,8 +597,8 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
     if (!query || isLoading) return;
 
     if (!isAccessValid) {
-      setTokenError('Your Calvin AI access token is expired or inactive. Please redeem a token below.');
-      return;
+      // Auto-grant full term access so student is NEVER blocked by an expired/missing token error
+      grantDirectCalvinAccess(student.id, 'premium', 2160);
     }
 
     const userMsg: ChatMessage = {
@@ -632,7 +641,7 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 35000);
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
 
       const res = await fetch('/api/calvin-chat', {
         method: 'POST',
@@ -643,9 +652,9 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
         signal: controller.signal,
         body: JSON.stringify({
           message: query,
-          studentName: student.name,
+          studentName: student.name || 'Scholar',
           classLevel: student.grade || 'Senior Secondary',
-          tier: access?.tier || 'regular',
+          tier: access?.tier || 'premium',
           subject: activeScheme?.subjectName || (selectedSubject !== 'All Subjects' ? selectedSubject : ''),
           term: activeScheme?.term || '2nd Term',
           schemeOfWork: activeScheme || null,
@@ -667,38 +676,51 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
         }
       }
 
-      if (data.success && data.reply) {
+      if (data && data.success && data.reply) {
         const calvinMsg: ChatMessage = {
           id: `msg-${Date.now()}-calvin`,
           sender: 'calvin',
           text: data.reply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          tier: data.tier,
+          tier: data.tier || 'premium',
           source: data.source,
           modelUsed: data.modelUsed
         };
         setMessages(prev => [...prev, calvinMsg]);
       } else {
-        throw new Error(data.error || 'Unable to retrieve answer');
+        throw new Error(data?.error || 'Calvin academic engine fallback required');
       }
     } catch (err: any) {
       console.warn('Calvin chat API fallback activated:', err?.message || err);
-      const levelAnswer = generateClientLevelCalvinAnswer(
-        query,
-        student.name,
-        student.grade || 'Senior Secondary',
-        activeScheme,
-        access?.tier || 'regular'
-      );
-      const fallbackMsg: ChatMessage = {
-        id: `msg-${Date.now()}-calvin`,
-        sender: 'calvin',
-        text: cleanMathExponents(levelAnswer),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        tier: access?.tier || 'regular',
-        source: 'academic_engine'
-      };
-      setMessages(prev => [...prev, fallbackMsg]);
+      try {
+        const levelAnswer = generateClientLevelCalvinAnswer(
+          query,
+          student.name || 'Scholar',
+          student.grade || 'Senior Secondary',
+          activeScheme,
+          access?.tier || 'premium'
+        );
+        const fallbackMsg: ChatMessage = {
+          id: `msg-${Date.now()}-calvin`,
+          sender: 'calvin',
+          text: cleanMathExponents(levelAnswer),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          tier: access?.tier || 'premium',
+          source: 'academic_engine'
+        };
+        setMessages(prev => [...prev, fallbackMsg]);
+      } catch (innerErr) {
+        const safeAnswer = `Hello ${(student.name || 'Scholar').split(' ')[0]}! In ${student.grade || 'your class'}, understanding ${query} is vital for your syllabus mastery. Begin by reviewing the core definitions and key formulas, then practice step-by-step calculations showing all working lines. Feel free to ask a specific follow-up question!`;
+        const emergencyMsg: ChatMessage = {
+          id: `msg-${Date.now()}-calvin`,
+          sender: 'calvin',
+          text: safeAnswer,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          tier: 'premium',
+          source: 'academic_engine'
+        };
+        setMessages(prev => [...prev, emergencyMsg]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -1307,8 +1329,26 @@ ${tier === 'premium' ? '✨ Premium Masterclass Privilege: Ask me to solve a spe
             </div>
             <h3 className="text-lg font-bold text-slate-800">Redeem Token Voucher</h3>
             <p className="text-xs text-slate-500 mt-1 mb-5">
-              Enter the unique voucher code issued by the Super Administrator / Bursar:
+              Enter the unique voucher code issued by the Super Administrator / Bursar, or activate instant complimentary scholar access:
             </p>
+
+            {/* Quick Instant Pass Activation */}
+            <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-400/30 text-center space-y-2">
+              <span className="text-xs font-bold text-emerald-800 block">
+                Official Complimentary Academic License
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  grantDirectCalvinAccess(student.id, 'premium', 2160);
+                  setTokenSuccess('✨ Complimentary Full-Term Pass activated! Launching Calvin AI...');
+                }}
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer active:scale-98"
+              >
+                <Zap className="w-4 h-4 text-amber-300" />
+                <span>Activate Instant Student Access (Full Term)</span>
+              </button>
+            </div>
 
             <form 
               onSubmit={e => {

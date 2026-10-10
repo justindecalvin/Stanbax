@@ -50,6 +50,9 @@ export const AdminSchoolCalendarTab: React.FC = () => {
   const [quickTermName, setQuickTermName] = useState(
     termResumptionConfig?.termName || '1st Term'
   );
+  const [quickIsMidway, setQuickIsMidway] = useState(
+    !!termResumptionConfig?.isMidwayLaunch
+  );
   const [isSettingStartDate, setIsSettingStartDate] = useState(false);
 
   // Event form state
@@ -163,11 +166,14 @@ export const AdminSchoolCalendarTab: React.FC = () => {
       termName: quickTermName,
       termEndDate: quickEndDate,
       sessionName: termResumptionConfig?.session || schoolInfo.activeSession,
-      shouldResetAttendance: true
+      shouldResetAttendance: !quickIsMidway,
+      isMidwayLaunch: quickIsMidway
     });
     setIsSettingStartDate(false);
     showNotification(
-      `Official Term Start Date set to ${quickStartDate} (${quickTermName}). Daily attendance counter has been automatically reset for teachers!`
+      quickIsMidway
+        ? `Official Term Start Date anchored to ${quickStartDate} (${quickTermName}) in Midway Launch Mode! Attendance records preserved.`
+        : `Official Term Start Date set to ${quickStartDate} (${quickTermName}). Daily attendance counter has been automatically reset for teachers!`
     );
   };
 
@@ -297,6 +303,25 @@ export const AdminSchoolCalendarTab: React.FC = () => {
               />
             </div>
 
+            <div className="sm:col-span-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={quickIsMidway}
+                  onChange={(e) => setQuickIsMidway(e.target.checked)}
+                  className="mt-0.5 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-black text-amber-950 block">
+                    Term Already Started in Advance / Midway App Launch
+                  </span>
+                  <span className="text-[11px] text-amber-800 leading-snug block">
+                    Check if launching midway. Existing teacher attendance records will be preserved instead of wiped to zero.
+                  </span>
+                </div>
+              </label>
+            </div>
+
             <div className="sm:col-span-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
               <div className="flex items-center gap-2 text-amber-900 text-xs">
                 <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
@@ -318,7 +343,7 @@ export const AdminSchoolCalendarTab: React.FC = () => {
                   className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Confirm Start Date & Reset Counter</span>
+                  <span>{quickIsMidway ? 'Confirm Midway Start (Preserve Attendance)' : 'Confirm Start Date & Reset Counter'}</span>
                 </button>
               </div>
             </div>
